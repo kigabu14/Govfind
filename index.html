@@ -329,7 +329,7 @@
 </div>
 
 <script>
-/* ------- Data Store (local) ------- */
+/* ================== DATA STORE ================== */
 let products = JSON.parse(localStorage.getItem('products')) || [];
 let stores = JSON.parse(localStorage.getItem('stores')) || ['เซเว่น','โลตัส','บิ๊กซี','แม็คโคร'];
 let customers = JSON.parse(localStorage.getItem('customers')) || ['ลูกค้าทั่วไป'];
@@ -349,54 +349,43 @@ function formatCurrency(amount){
   return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(amount||0);
 }
 
-/* ------- Tabs ------- */
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.addEventListener('click',function(){
-    const tabId = this.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(b=>b.className='tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white hover:neon-glow transition-all duration-300');
-    if(tabId==='reports'){ this.className='tab-btn px-6 py-4 font-medium text-red-400 border-b-2 border-red-400 red-glow'; }
-    else{ this.className='tab-btn px-6 py-4 font-medium text-blue-400 border-b-2 border-blue-400 neon-glow'; }
-    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
-    if(tabId==='summary'){ updateSummary(); }
-    else if(tabId==='reports'){ updateMonthlyPreview(); const now=new Date(); document.getElementById('reportMonth').value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; }
-  });
-});
-
-/* ------- Init dates ------- */
-document.getElementById('buyDate').value = new Date().toISOString().split('T')[0];
-document.getElementById('sellDate').value = new Date().toISOString().split('T')[0];
-
-/* ------- Dropdown updates ------- */
+/* ================== UI HELPERS ================== */
 function updateStoreDropdowns(){
   const s=document.getElementById('buyStore');
-  s.innerHTML='<option value="">เลือกร้าน</option>';
-  stores.forEach(v=>s.innerHTML+=`<option value="${v}">${v}</option>`);
+  if(!s) return;
+  s.innerHTML='<option value="">เลือกร้าน</option>'+stores.map(v=>`<option value="${v}">${v}</option>`).join('');
+}
+function ensureDefaultCustomer(){
+  if(!Array.isArray(customers)) customers=[];
+  if(!customers.includes('ลูกค้าทั่วไป')){
+    customers=['ลูกค้าทั่วไป', ...customers.filter(c=>c && c!=='ลูกค้าทั่วไป')];
+    saveToStorage();
+  }
 }
 function updateCustomerDropdowns(){
+  ensureDefaultCustomer();
   const s=document.getElementById('sellCustomer');
-  s.innerHTML='<option value="">เลือกลูกค้า</option>';
-  customers.forEach(v=>s.innerHTML+=`<option value="${v}">${v}</option>`);
+  if(!s) return;
+  const cur = s.value;
+  s.innerHTML='<option value="">เลือกลูกค้า</option>'+customers.map(v=>`<option value="${v}">${v}</option>`).join('');
+  s.value = cur || 'ลูกค้าทั่วไป';
 }
 function updateCategoryDropdowns(){
-  const sel=document.getElementById('productCategory');
+  const sel=document.getElementById('productCategory'); if(!sel) return;
   const cur=sel.value;
-  sel.innerHTML='<option value="">เลือกหมวดหมู่</option>';
-  categories.forEach(v=>sel.innerHTML+=`<option value="${v}">${v}</option>`);
+  sel.innerHTML='<option value="">เลือกหมวดหมู่</option>'+categories.map(v=>`<option value="${v}">${v}</option>`).join('');
   sel.value=cur;
 }
 function updateProductDropdowns(){
   document.querySelectorAll('.product-select').forEach(sel=>{
     const cur=sel.value;
-    sel.innerHTML='<option value="">เลือกสินค้า</option>';
-    products.forEach(p=>sel.innerHTML+=`<option value="${p.id}">${p.name}</option>`);
+    sel.innerHTML='<option value="">เลือกสินค้า</option>'+products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
     sel.value=cur;
   });
 }
-
-/* ------- Products table ------- */
 function updateProductsTable(){
   const tbody=document.getElementById('productsTable');
+  if(!tbody) return;
   if(products.length===0){ tbody.innerHTML='<tr><td colspan="7" class="text-center py-8 text-gray-400">ยังไม่มีสินค้า</td></tr>'; return; }
   tbody.innerHTML = products.map(product=>{
     const vatPrice = product.hasVat ? product.sellPrice*1.07 : product.sellPrice;
@@ -424,19 +413,35 @@ function deleteProduct(productId){
   }
 }
 
-/* ------- Dynamic items ------- */
+/* ================== TABS & DATES ================== */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    const tabId=this.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b=>b.className='tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white hover:neon-glow transition-all duration-300');
+    if(tabId==='reports'){ this.className='tab-btn px-6 py-4 font-medium text-red-400 border-b-2 border-red-400 red-glow'; }
+    else{ this.className='tab-btn px-6 py-4 font-medium text-blue-400 border-b-2 border-blue-400 neon-glow'; }
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    if(tabId==='summary'){ updateSummary(); }
+    else if(tabId==='reports'){ updateMonthlyPreview(); const now=new Date(); document.getElementById('reportMonth').value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; }
+  });
+});
+document.getElementById('buyDate').value = new Date().toISOString().split('T')[0];
+document.getElementById('sellDate').value = new Date().toISOString().split('T')[0];
+
+/* ================== ITEMS & EVENTS ================== */
 function addBuyItem(){
   const c=document.getElementById('buyItems');
   const d=document.createElement('div');
   d.className='buy-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border border-gray-600 rounded-lg glass-effect';
   d.innerHTML=`
     <div><label class="block text-sm font-medium text-gray-200 mb-1">สินค้า</label>
-      <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400" required><option value="">เลือกสินค้า</option></select></div>
+      <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" required><option value="">เลือกสินค้า</option></select></div>
     <div><label class="block text-sm font-medium text-gray-200 mb-1">จำนวน</label>
-      <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400" min="1" value="1" required></div>
+      <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" min="1" value="1" required></div>
     <div><label class="block text-sm font-medium text-gray-200 mb-1">ราคา (฿)</label>
-      <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400" step="0.01" min="0" required></div>
-    <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition duration-300 shadow-lg">ลบ</button></div>`;
+      <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" step="0.01" min="0" required></div>
+    <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg">ลบ</button></div>`;
   c.appendChild(d); updateProductDropdowns();
 }
 function addSellItem(){
@@ -445,197 +450,173 @@ function addSellItem(){
   d.className='sell-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border border-gray-600 rounded-lg glass-effect';
   d.innerHTML=`
     <div><label class="block text-sm font-medium text-gray-200 mb-1">สินค้า</label>
-      <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-green-400 focus:border-green-400" required><option value="">เลือกสินค้า</option></select></div>
+      <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" required><option value="">เลือกสินค้า</option></select></div>
     <div><label class="block text-sm font-medium text-gray-200 mb-1">จำนวน</label>
-      <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-green-400 focus:border-green-400" min="1" value="1" required></div>
+      <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" min="1" value="1" required></div>
     <div><label class="block text-sm font-medium text-gray-200 mb-1">ราคาขาย (฿)</label>
-      <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-green-400 focus:border-green-400" step="0.01" min="0" required></div>
-    <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition duration-300 shadow-lg">ลบ</button></div>`;
+      <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" step="0.01" min="0" required></div>
+    <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg">ลบ</button></div>`;
   c.appendChild(d); updateProductDropdowns();
 }
 document.getElementById('addBuyItem').addEventListener('click',addBuyItem);
 document.getElementById('addSellItem').addEventListener('click',addSellItem);
-document.addEventListener('click',function(e){
+document.addEventListener('click',e=>{
   if(e.target.classList.contains('remove-item')){
-    const itemDiv=e.target.closest('.buy-item, .sell-item');
-    const container=itemDiv.parentElement;
-    if(container.children.length>1){ itemDiv.remove(); } else { alert('ต้องมีรายการอย่างน้อย 1 รายการ'); }
+    const row=e.target.closest('.buy-item, .sell-item');
+    const box=row.parentElement;
+    if(box.children.length>1) row.remove();
+    else alert('ต้องมีรายการอย่างน้อย 1 รายการ');
   }
 });
-
-/* ------- Auto fill price ------- */
-document.addEventListener('change',function(e){
+document.addEventListener('change',e=>{
   if(e.target.classList.contains('product-select')){
-    const productId=parseInt(e.target.value);
-    const product=products.find(p=>p.id===productId);
-    if(product){
-      const itemDiv=e.target.closest('.buy-item, .sell-item');
-      const priceInput=itemDiv.querySelector('.price-input');
-      priceInput.value = itemDiv.classList.contains('buy-item') ? product.buyPrice : product.sellPrice;
+    const pid=Number(e.target.value);
+    const p=products.find(x=>x.id===pid);
+    if(p){
+      const row=e.target.closest('.buy-item, .sell-item');
+      row.querySelector('.price-input').value = row.classList.contains('buy-item') ? p.buyPrice : p.sellPrice;
     }
   }
 });
 
-/* ------- Auto Sync to Google Sheets ------- */
+/* ================== NETWORK: SYNC WITH DEBUG ================== */
+function setSyncStatus(msg, color='text-gray-300'){
+  const el=document.getElementById('syncStatus'); if(!el) return;
+  el.textContent=msg; el.className=`text-sm ${color}`;
+}
 function getScriptUrl(){
   const input=document.getElementById('scriptUrl');
   return (input?.value || localStorage.getItem('scriptUrl') || '').trim();
 }
 function rememberScriptUrl(){
   const url=document.getElementById('scriptUrl')?.value?.trim()||'';
-  localStorage.setItem('scriptUrl',url);
+  localStorage.setItem('scriptUrl', url);
 }
-function setSyncStatus(msg,color='text-gray-300'){
-  const el=document.getElementById('syncStatus'); if(!el) return;
-  el.textContent=msg; el.className=`text-sm ${color}`;
+function looksLikeAppsScript(url){
+  // ยอมรับ /exec และ /dev เพื่อทดสอบ
+  return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/(exec|dev)(\?.*)?$/.test(url);
+}
+function isFileScheme(){
+  return window.location.protocol === 'file:';
+}
+function errorToString(err){
+  if (!err) return 'Unknown';
+  const name = err.name || 'Error';
+  const msg = err.message || '';
+  return `${name}${msg ? ': '+msg : ''}`;
+}
+async function httpJson(url, { method='GET', headers={}, body=null, timeoutMs=10000 } = {}, retries=1){
+  for(let attempt=0; attempt<=retries; attempt++){
+    const ctrl = new AbortController();
+    const timer = setTimeout(()=>ctrl.abort(), timeoutMs);
+    try{
+      const res = await fetch(url, { method, headers, body, signal: ctrl.signal });
+      clearTimeout(timer);
+      const text = await res.text().catch(()=> '');
+      let data = {};
+      try{ data = text ? JSON.parse(text) : {}; }catch(_){}
+      if(!res.ok){
+        const msg = (data && data.error) ? data.error : (text || `HTTP ${res.status}`);
+        throw new Error(msg);
+      }
+      return data;
+    }catch(err){
+      clearTimeout(timer);
+      if(attempt===retries) throw err;
+      await new Promise(r=>setTimeout(r, 600*(attempt+1)));
+    }
+  }
 }
 async function syncNow(reason='auto'){
-  const scriptUrl=getScriptUrl();
-  if(!scriptUrl){ setSyncStatus('ยังไม่ได้ใส่ URL ของ Google Apps Script (ยังไม่ส่งขึ้นชีต)', 'text-red-400'); return {ok:false,error:'NO_URL'}; }
-  setSyncStatus(`กำลังส่งข้อมูล (${reason})...`,'text-yellow-400');
+  // เตือนถ้าเปิดไฟล์แบบ file://
+  if(isFileScheme()){
+    setSyncStatus('ควรเปิดหน้าเว็บผ่าน http:// หรือ https:// (ไม่ใช่ file://) เพื่อให้ fetch ทำงาน', 'text-red-400');
+    // ยังบันทึกในเครื่องได้นะ แต่จะไม่ยิงขึ้น Script
+    return { ok:false, error:'FILE_SCHEME' };
+  }
+  const scriptUrl = getScriptUrl();
+  if(!scriptUrl){ setSyncStatus('ยังไม่ได้ใส่ URL ของ Google Apps Script', 'text-red-400'); return { ok:false, error:'NO_URL' }; }
+  if(!looksLikeAppsScript(scriptUrl)){ setSyncStatus('URL ต้องเป็น Web App ของ Apps Script (/exec หรือ /dev)', 'text-red-400'); return { ok:false, error:'BAD_URL' }; }
+
+  // ping
   try{
-    const payload={products,buyTransactions,sellTransactions,stores,customers,categories,timestamp:new Date().toISOString()};
-    const res=await fetch(scriptUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const data=await res.json().catch(()=>({}));
-    if(res.ok && (data?.ok!==false)){ setSyncStatus(`ส่งข้อมูลสำเร็จ (${reason})`,'text-green-400'); return {ok:true}; }
-    setSyncStatus(`ส่งข้อมูลไม่สำเร็จ (${reason})`,'text-red-400'); return {ok:false,error:data?.error||'SYNC_FAIL'};
-  }catch(err){ console.error('syncNow',err); setSyncStatus(`เครือข่ายมีปัญหา (${reason})`,'text-red-400'); return {ok:false,error:String(err)}; }
-}
-document.addEventListener('DOMContentLoaded',()=>{ const input=document.getElementById('scriptUrl'); if(input){ const saved=localStorage.getItem('scriptUrl'); if(saved) input.value=saved; input.addEventListener('change',rememberScriptUrl); input.addEventListener('blur',rememberScriptUrl);} });
+    setSyncStatus('ทดสอบการเชื่อมต่อ...', 'text-yellow-400');
+    await httpJson(scriptUrl, { method:'GET', timeoutMs:6000 }, 1);
+  }catch(err){
+    console.error('PING FAIL:', err);
+    setSyncStatus('เชื่อมต่อ Web App ไม่ได้: '+errorToString(err), 'text-red-400');
+    return { ok:false, error:'PING_FAIL' };
+  }
 
-/* ------- Forms: POST right after save ------- */
-document.getElementById('buyForm').addEventListener('submit',async function(e){
-  e.preventDefault();
-  const date=document.getElementById('buyDate').value;
-  const store=document.getElementById('buyStore').value;
-  const items=[];
-  document.querySelectorAll('.buy-item').forEach(itemDiv=>{
-    const productId=parseInt(itemDiv.querySelector('.product-select').value);
-    const quantity=parseInt(itemDiv.querySelector('.quantity-input').value);
-    const price=parseFloat(itemDiv.querySelector('.price-input').value);
-    if(productId && quantity && price){
-      const product=products.find(p=>p.id===productId);
-      items.push({productId,productName:product.name,quantity,price,total:quantity*price,hasVat:product.hasVat});
+  // post
+  try{
+    setSyncStatus(`กำลังส่งข้อมูล (${reason})...`, 'text-yellow-400');
+    const payload = { products,buyTransactions,sellTransactions,stores,customers,categories,timestamp:new Date().toISOString() };
+    const data = await httpJson(scriptUrl, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+      timeoutMs:12000
+    }, 2);
+    if(data && data.ok === false){
+      setSyncStatus('สคริปต์ตอบผิดพลาด: '+(data.error||'unknown'), 'text-red-400');
+      return { ok:false, error:data.error||'SCRIPT_ERR' };
     }
-  });
-  if(items.length>0){
-    buyTransactions.push({id:Date.now(),date,store,items,total:items.reduce((s,i)=>s+i.total,0)});
-    saveToStorage(); await syncNow('บันทึกซื้อ');
-    alert('บันทึกการซื้อเรียบร้อย!');
-    this.reset(); document.getElementById('buyDate').value=new Date().toISOString().split('T')[0];
-    const container=document.getElementById('buyItems');
-    container.innerHTML=`
-      <div class="buy-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border border-gray-600 rounded-lg glass-effect">
-        <div><label class="block text-sm font-medium text-gray-200 mb-1">สินค้า</label>
-          <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" required><option value="">เลือกสินค้า</option></select></div>
-        <div><label class="block text-sm font-medium text-gray-200 mb-1">จำนวน</label>
-          <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" min="1" value="1" required></div>
-        <div><label class="block text-sm font-medium text-gray-200 mb-1">ราคา (฿)</label>
-          <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" step="0.01" min="0" required></div>
-        <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg">ลบ</button></div>
-      </div>`;
-    updateProductDropdowns();
+    setSyncStatus(`ส่งข้อมูลสำเร็จ (${reason})`, 'text-green-400');
+    return { ok:true };
+  }catch(err){
+    console.error('SYNC FAIL:', err);
+    const msg = errorToString(err);
+    setSyncStatus('ส่งข้อมูลไม่สำเร็จ: '+msg, 'text-red-400');
+    return { ok:false, error: msg };
+  }
+}
+
+/* ================== LOAD BUTTON (ใช้ httpJson เดียวกัน) ================== */
+document.getElementById('loadFromSheetsBtn').addEventListener('click', async function(){
+  if(isFileScheme()){ alert('กรุณาเปิดผ่าน http:// หรือ https://'); return; }
+  const scriptUrl=getScriptUrl();
+  if(!scriptUrl){ alert('กรุณาใส่ URL ของ Google Apps Script'); return; }
+  if(!looksLikeAppsScript(scriptUrl)){ alert('URL ต้องลงท้ายด้วย /exec หรือ /dev'); return; }
+  setSyncStatus('กำลังโหลดข้อมูล...', 'text-yellow-400');
+  try{
+    const data = await httpJson(`${scriptUrl}?action=load`, { method:'GET', timeoutMs:12000 }, 2);
+    if (data.products) products = data.products;
+    if (data.buyTransactions) buyTransactions = data.buyTransactions;
+    if (data.sellTransactions) sellTransactions = data.sellTransactions;
+    if (data.stores) stores = data.stores;
+    if (data.customers) customers = data.customers;
+    if (data.categories) categories = data.categories;
+    saveToStorage(); ensureDefaultCustomer(); init();
+    setSyncStatus('โหลดข้อมูลสำเร็จ!', 'text-green-400');
+  }catch(err){
+    console.error('LOAD FAIL:', err);
+    setSyncStatus('โหลดข้อมูลไม่สำเร็จ: '+errorToString(err), 'text-red-400');
   }
 });
 
-document.getElementById('sellForm').addEventListener('submit',async function(e){
-  e.preventDefault();
-  const date=document.getElementById('sellDate').value;
-  const customer=document.getElementById('sellCustomer').value;
-  const items=[];
-  document.querySelectorAll('.sell-item').forEach(itemDiv=>{
-    const productId=parseInt(itemDiv.querySelector('.product-select').value);
-    const quantity=parseInt(itemDiv.querySelector('.quantity-input').value);
-    const price=parseFloat(itemDiv.querySelector('.price-input').value);
-    if(productId && quantity && price){
-      const product=products.find(p=>p.id===productId);
-      items.push({productId,productName:product.name,quantity,price,total:quantity*price,hasVat:product.hasVat});
+/* ================== PDF (SERVER FIRST, FALLBACK CLIENT) ================== */
+document.getElementById('generatePDFBtn').addEventListener('click',async function(){
+  const selectedMonth=document.getElementById('reportMonth').value;
+  if(!selectedMonth){ alert('กรุณาเลือกเดือนที่ต้องการสร้างรายงาน'); return; }
+  const scriptUrl=getScriptUrl();
+  const btn=this; btn.disabled=true; const old=btn.textContent; btn.textContent='กำลังสร้าง PDF...';
+  try{
+    if(scriptUrl && looksLikeAppsScript(scriptUrl) && !isFileScheme()){
+      const data = await httpJson(`${scriptUrl}?action=pdf&month=${encodeURIComponent(selectedMonth)}`, { method:'GET', timeoutMs:20000 }, 1);
+      if(data && data.ok && (data.downloadUrl || data.url)){ window.open(data.downloadUrl || data.url, '_blank'); }
+      else{ alert('สร้าง PDF บนเซิร์ฟเวอร์ไม่สำเร็จ จะใช้วิธีในเบราว์เซอร์แทน'); generateMonthlyPDF(selectedMonth); }
+    }else{
+      generateMonthlyPDF(selectedMonth);
     }
-  });
-  if(items.length>0){
-    sellTransactions.push({id:Date.now(),date,customer,items,total:items.reduce((s,i)=>s+i.total,0)});
-    saveToStorage(); await syncNow('บันทึกขาย');
-    alert('บันทึกการขายเรียบร้อย!');
-    this.reset(); document.getElementById('sellDate').value=new Date().toISOString().split('T')[0];
-    const container=document.getElementById('sellItems');
-    container.innerHTML=`
-      <div class="sell-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border border-gray-600 rounded-lg glass-effect">
-        <div><label class="block text-sm font-medium text-gray-200 mb-1">สินค้า</label>
-          <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" required><option value="">เลือกสินค้า</option></select></div>
-        <div><label class="block text-sm font-medium text-gray-200 mb-1">จำนวน</label>
-          <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" min="1" value="1" required></div>
-        <div><label class="block text-sm font-medium text-gray-200 mb-1">ราคาขาย (฿)</label>
-          <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" step="0.01" min="0" required></div>
-        <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg">ลบ</button></div>
-      </div>`;
-    updateProductDropdowns();
+  }catch(err){
+    console.error('PDF FAIL:', err);
+    alert('สร้าง PDF บนเซิร์ฟเวอร์ไม่สำเร็จ: '+errorToString(err)+'\nจะใช้วิธีในเบราว์เซอร์แทน');
+    generateMonthlyPDF(selectedMonth);
+  }finally{
+    btn.disabled=false; btn.textContent=old;
   }
 });
-
-/* ------- Add store/customer/category (auto-sync) ------- */
-document.getElementById('addStoreBtn').addEventListener('click',async function(){
-  const v=prompt('ชื่อร้าน:'); if(v && !stores.includes(v)){ stores.push(v); saveToStorage(); updateStoreDropdowns(); await syncNow('เพิ่มร้าน'); }
-});
-document.getElementById('addCustomerBtn').addEventListener('click',async function(){
-  const v=prompt('ชื่อลูกค้า:'); if(v && !customers.includes(v)){ customers.push(v); saveToStorage(); updateCustomerDropdowns(); await syncNow('เพิ่มลูกค้า'); }
-});
-document.getElementById('addCategoryBtn').addEventListener('click',async function(){
-  const v=prompt('ชื่อหมวดหมู่:'); if(v && !categories.includes(v)){ categories.push(v); saveToStorage(); updateCategoryDropdowns(); await syncNow('เพิ่มหมวดหมู่'); }
-});
-
-/* ------- Product management (auto-sync) ------- */
-document.getElementById('addProductBtn').addEventListener('click',()=>document.getElementById('productForm').classList.remove('hidden'));
-document.getElementById('cancelProductBtn').addEventListener('click',()=>{
-  document.getElementById('productForm').classList.add('hidden'); document.getElementById('addProductForm').reset();
-});
-document.getElementById('addProductForm').addEventListener('submit',async function(e){
-  e.preventDefault();
-  const product={ id:Date.now(),
-    name:document.getElementById('productName').value,
-    category:document.getElementById('productCategory').value,
-    buyPrice:parseFloat(document.getElementById('productBuyPrice').value),
-    sellPrice:parseFloat(document.getElementById('productSellPrice').value),
-    hasVat:document.getElementById('productHasVat').checked
-  };
-  products.push(product); saveToStorage(); updateProductsTable(); updateProductDropdowns();
-  await syncNow('เพิ่มสินค้า');
-  document.getElementById('productForm').classList.add('hidden'); this.reset();
-});
-
-/* ------- Summary ------- */
-function updateSummary(){
-  const allItems=[];
-  buyTransactions.forEach(t=>t.items.forEach(i=>allItems.push(i)));
-  sellTransactions.forEach(t=>t.items.forEach(i=>allItems.push(i)));
-  const vatItems=allItems.filter(i=>i.hasVat); const noVatItems=allItems.filter(i=>!i.hasVat);
-  const vatSubtotal=vatItems.reduce((s,i)=>s+i.total,0); const vatAmount=vatSubtotal*0.07; const vatTotal=vatSubtotal+vatAmount;
-  const noVatTotal=noVatItems.reduce((s,i)=>s+i.total,0);
-  document.getElementById('vatItemsCount').textContent=vatItems.length;
-  document.getElementById('vatSubtotal').textContent=formatCurrency(vatSubtotal);
-  document.getElementById('vatAmount').textContent=formatCurrency(vatAmount);
-  document.getElementById('vatTotal').textContent=formatCurrency(vatTotal);
-  document.getElementById('noVatItemsCount').textContent=noVatItems.length;
-  document.getElementById('noVatTotal').textContent=formatCurrency(noVatTotal);
-  updateVatItemsList(vatItems); updateNoVatItemsList(noVatItems);
-}
-function updateVatItemsList(items){
-  const tbody=document.getElementById('vatItemsList');
-  if(items.length===0){ tbody.innerHTML='<tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr>'; return; }
-  tbody.innerHTML = items.map(it=>`
-    <tr class="border-b border-gray-100"><td class="py-2 px-2">${it.productName}</td>
-    <td class="py-2 px-2">${it.quantity}</td><td class="py-2 px-2">${formatCurrency(it.price)}</td>
-    <td class="py-2 px-2 font-semibold">${formatCurrency(it.total)}</td></tr>`).join('');
-}
-function updateNoVatItemsList(items){
-  const tbody=document.getElementById('noVatItemsList');
-  if(items.length===0){ tbody.innerHTML='<tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr>'; return; }
-  tbody.innerHTML = items.map(it=>`
-    <tr class="border-b border-gray-100"><td class="py-2 px-2">${it.productName}</td>
-    <td class="py-2 px-2">${it.quantity}</td><td class="py-2 px-2">${formatCurrency(it.price)}</td>
-    <td class="py-2 px-2 font-semibold">${formatCurrency(it.total)}</td></tr>`).join('');
-}
-
-/* ------- Monthly preview ------- */
 function getMonthlyData(month){
   const [year,monthNum]=month.split('-');
   const monthlyBuy=buyTransactions.filter(t=>{const d=new Date(t.date);return d.getFullYear()==year && (d.getMonth()+1)==parseInt(monthNum);});
@@ -647,54 +628,6 @@ function getMonthlyData(month){
   const totalVat=vatItems.reduce((s,i)=>s+(i.total*0.07),0);
   return {buyTransactions:monthlyBuy,sellTransactions:monthlySell,vatItems,totalBuy,totalSell,totalVat,profit:totalSell-totalBuy};
 }
-function updateMonthlyPreview(){
-  const now=new Date(); const m=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const md=getMonthlyData(m);
-  document.getElementById('totalBuyAmount').textContent=formatCurrency(md.totalBuy);
-  document.getElementById('totalSellAmount').textContent=formatCurrency(md.totalSell);
-  document.getElementById('totalVatAmount').textContent=formatCurrency(md.totalVat);
-  document.getElementById('totalProfit').textContent=formatCurrency(md.profit);
-}
-
-/* ------- Manual Sync/Load buttons ------- */
-document.getElementById('syncToSheetsBtn').addEventListener('click',()=>syncNow('กดปุ่ม Sync'));
-document.getElementById('loadFromSheetsBtn').addEventListener('click',async function(){
-  const scriptUrl=getScriptUrl(); if(!scriptUrl){ alert('กรุณาใส่ URL ของ Google Apps Script'); return; }
-  setSyncStatus('กำลังโหลดข้อมูล...','text-yellow-400');
-  try{
-    const res=await fetch(scriptUrl+'?action=load'); if(!res.ok) throw new Error('Load failed');
-    const data=await res.json();
-    if(data.products) products=data.products;
-    if(data.buyTransactions) buyTransactions=data.buyTransactions;
-    if(data.sellTransactions) sellTransactions=data.sellTransactions;
-    if(data.stores) stores=data.stores;
-    if(data.customers) customers=data.customers;
-    if(data.categories) categories=data.categories;
-    saveToStorage(); init();
-    setSyncStatus('โหลดข้อมูลสำเร็จ!','text-green-400');
-  }catch(err){ console.error('Load error:',err); setSyncStatus('เกิดข้อผิดพลาดในการโหลดข้อมูล','text-red-400'); }
-});
-
-/* ------- PDF (server first, fallback client) ------- */
-document.getElementById('generatePDFBtn').addEventListener('click',async function(){
-  const selectedMonth=document.getElementById('reportMonth').value;
-  if(!selectedMonth){ alert('กรุณาเลือกเดือนที่ต้องการสร้างรายงาน'); return; }
-  const scriptUrl=getScriptUrl();
-  const btn=this; btn.disabled=true; const old=btn.textContent; btn.textContent='กำลังสร้าง PDF...';
-  try{
-    if(scriptUrl){
-      const res=await fetch(`${scriptUrl}?action=pdf&month=${encodeURIComponent(selectedMonth)}`);
-      const data=await res.json();
-      if(data && data.ok){ window.open(data.downloadUrl || data.url,'_blank'); }
-      else{ alert('สร้าง PDF ที่เซิร์ฟเวอร์ไม่สำเร็จ: '+(data?.error||'Unknown')); generateMonthlyPDF(selectedMonth); }
-    }else{
-      generateMonthlyPDF(selectedMonth);
-    }
-  }catch(err){ console.error(err); alert('มีปัญหาในการสร้าง PDF บนเซิร์ฟเวอร์ จะใช้วิธีสร้าง PDF ฝั่งเบราว์เซอร์แทน'); generateMonthlyPDF(selectedMonth); }
-  finally{ btn.disabled=false; btn.textContent=old; }
-});
-
-/* ------- jsPDF fallback (เหมือนของเดิม) ------- */
 function generateMonthlyPDF(month){
   const { jsPDF }=window.jspdf; const doc=new jsPDF(); doc.setFont('helvetica');
   doc.setFontSize(20); doc.text('รายงานประจำเดือน',105,20,{align:'center'});
@@ -727,13 +660,145 @@ function generateMonthlyPDF(month){
   const fileName=`รายงาน_${month.replace('-','_')}.pdf`; doc.save(fileName);
 }
 
-/* ------- Init ------- */
+/* ================== VALIDATION & SUBMIT ================== */
+function validateLineItems(containerSelector, mode){
+  const rows=[...document.querySelectorAll(containerSelector+' .'+(mode==='buy'?'buy-item':'sell-item'))];
+  let ok=true, messages=[];
+  rows.forEach(row=>{
+    const sel=row.querySelector('.product-select');
+    const qty=row.querySelector('.quantity-input');
+    const price=row.querySelector('.price-input');
+    [sel,qty,price].forEach(el=>el&&el.classList.remove('input-error'));
+    const pid=Number(sel?.value||NaN), q=Number(qty?.value||NaN), p=Number(price?.value||NaN);
+    if(!pid || !products.find(x=>x.id===pid)){ ok=false; sel?.classList.add('input-error'); }
+    if(!(q>0)){ ok=false; qty?.classList.add('input-error'); }
+    if(!(p>=0)){ ok=false; price?.classList.add('input-error'); }
+  });
+  if(!ok) messages.push('กรุณาเลือกสินค้า ใส่จำนวน (>0) และราคา ให้ครบทุกบรรทัด');
+  if(mode==='buy'){
+    const store=document.getElementById('buyStore').value.trim();
+    if(!store){ ok=false; document.getElementById('buyStore').classList.add('input-error'); messages.push('กรุณาเลือกร้านที่ซื้อ'); }
+    else document.getElementById('buyStore').classList.remove('input-error');
+  }else{
+    const cust=document.getElementById('sellCustomer').value.trim();
+    if(!cust){ ok=false; document.getElementById('sellCustomer').classList.add('input-error'); messages.push('กรุณาเลือกลูกค้า'); }
+    else document.getElementById('sellCustomer').classList.remove('input-error');
+  }
+  return { ok, message: messages.join('\n') };
+}
+
+document.getElementById('buyForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const v=validateLineItems('#buyItems','buy'); if(!v.ok){ alert(v.message); return; }
+  const date=document.getElementById('buyDate').value;
+  const store=document.getElementById('buyStore').value.trim();
+  const items=[];
+  document.querySelectorAll('.buy-item').forEach(row=>{
+    const pid=Number(row.querySelector('.product-select').value);
+    const q=Number(row.querySelector('.quantity-input').value);
+    const p=Number(row.querySelector('.price-input').value);
+    if(pid && q>0 && p>=0){
+      const prod=products.find(x=>x.id===pid);
+      items.push({productId:pid,productName:prod.name,quantity:q,price:p,total:q*p,hasVat:prod.hasVat});
+    }
+  });
+  buyTransactions.push({id:Date.now(),date,store,items,total:items.reduce((s,i)=>s+i.total,0)});
+  saveToStorage(); await syncNow('บันทึกซื้อ');
+  alert('บันทึกการซื้อเรียบร้อย!');
+  this.reset(); document.getElementById('buyDate').value=new Date().toISOString().split('T')[0];
+  const box=document.getElementById('buyItems');
+  box.innerHTML=`
+    <div class="buy-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border border-gray-600 rounded-lg glass-effect">
+      <div><label class="block text-sm font-medium text-gray-200 mb-1">สินค้า</label>
+        <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" required><option value="">เลือกสินค้า</option></select></div>
+      <div><label class="block text-sm font-medium text-gray-200 mb-1">จำนวน</label>
+        <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" min="1" value="1" required></div>
+      <div><label class="block text-sm font-medium text-gray-200 mb-1">ราคา (฿)</label>
+        <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" step="0.01" min="0" required></div>
+      <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg">ลบ</button></div>
+    </div>`;
+  updateProductDropdowns();
+});
+
+document.getElementById('sellForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  ensureDefaultCustomer(); updateCustomerDropdowns();
+  const v=validateLineItems('#sellItems','sell'); if(!v.ok){ alert(v.message); return; }
+  const date=document.getElementById('sellDate').value;
+  const customer=(document.getElementById('sellCustomer').value||'').trim();
+  const items=[];
+  document.querySelectorAll('.sell-item').forEach(row=>{
+    const pid=Number(row.querySelector('.product-select').value);
+    const q=Number(row.querySelector('.quantity-input').value);
+    const p=Number(row.querySelector('.price-input').value);
+    if(pid && q>0 && p>=0){
+      const prod=products.find(x=>x.id===pid);
+      items.push({productId:pid,productName:prod.name,quantity:q,price:p,total:q*p,hasVat:prod.hasVat});
+    }
+  });
+  sellTransactions.push({id:Date.now(),date,customer,items,total:items.reduce((s,i)=>s+i.total,0)});
+  saveToStorage(); await syncNow('บันทึกขาย');
+  alert('บันทึกการขายเรียบร้อย!');
+  this.reset(); document.getElementById('sellDate').value=new Date().toISOString().split('T')[0];
+  const box=document.getElementById('sellItems');
+  box.innerHTML=`
+    <div class="sell-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border border-gray-600 rounded-lg glass-effect">
+      <div><label class="block text-sm font-medium text-gray-200 mb-1">สินค้า</label>
+        <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" required><option value="">เลือกสินค้า</option></select></div>
+      <div><label class="block text-sm font-medium text-gray-200 mb-1">จำนวน</label>
+        <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" min="1" value="1" required></div>
+      <div><label class="block text-sm font-medium text-gray-200 mb-1">ราคาขาย (฿)</label>
+        <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" step="0.01" min="0" required></div>
+      <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg">ลบ</button></div>
+    </div>`;
+  updateProductDropdowns(); updateCustomerDropdowns();
+});
+
+/* ================== SUMMARY & PREVIEW ================== */
+function updateSummary(){
+  const all=[]; buyTransactions.forEach(t=>t.items.forEach(i=>all.push(i))); sellTransactions.forEach(t=>t.items.forEach(i=>all.push(i)));
+  const vat=all.filter(i=>i.hasVat), novat=all.filter(i=>!i.hasVat);
+  const vsub=vat.reduce((s,i)=>s+i.total,0), v7=vsub*0.07, vtot=vsub+v7;
+  const ntot=novat.reduce((s,i)=>s+i.total,0);
+  document.getElementById('vatItemsCount').textContent=vat.length;
+  document.getElementById('vatSubtotal').textContent=formatCurrency(vsub);
+  document.getElementById('vatAmount').textContent=formatCurrency(v7);
+  document.getElementById('vatTotal').textContent=formatCurrency(vtot);
+  document.getElementById('noVatItemsCount').textContent=novat.length;
+  document.getElementById('noVatTotal').textContent=formatCurrency(ntot);
+  const tbodyV=document.getElementById('vatItemsList');
+  const tbodyN=document.getElementById('noVatItemsList');
+  tbodyV.innerHTML = vat.length? vat.map(i=>`<tr class="border-b border-gray-100"><td class="py-2 px-2">${i.productName}</td><td class="py-2 px-2">${i.quantity}</td><td class="py-2 px-2">${formatCurrency(i.price)}</td><td class="py-2 px-2 font-semibold">${formatCurrency(i.total)}</td></tr>`).join('') : '<tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr>';
+  tbodyN.innerHTML = novat.length? novat.map(i=>`<tr class="border-b border-gray-100"><td class="py-2 px-2">${i.productName}</td><td class="py-2 px-2">${i.quantity}</td><td class="py-2 px-2">${formatCurrency(i.price)}</td><td class="py-2 px-2 font-semibold">${formatCurrency(i.total)}</td></tr>`).join('') : '<tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr>';
+}
+function updateMonthlyPreview(){
+  const now=new Date(); const m=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const md=getMonthlyData(m);
+  document.getElementById('totalBuyAmount').textContent=formatCurrency(md.totalBuy);
+  document.getElementById('totalSellAmount').textContent=formatCurrency(md.totalSell);
+  document.getElementById('totalVatAmount').textContent=formatCurrency(md.totalVat);
+  document.getElementById('totalProfit').textContent=formatCurrency(md.profit);
+}
+
+/* ================== INIT ================== */
+document.addEventListener('DOMContentLoaded',()=>{
+  const input=document.getElementById('scriptUrl');
+  if(input){ const saved=localStorage.getItem('scriptUrl'); if(saved) input.value=saved; input.addEventListener('change',rememberScriptUrl); input.addEventListener('blur',rememberScriptUrl); }
+});
 function init(){
-  updateStoreDropdowns(); updateCustomerDropdowns(); updateCategoryDropdowns();
-  updateProductDropdowns(); updateProductsTable(); updateSummary();
-  const input=document.getElementById('scriptUrl'); if(input && !input.value){ const saved=localStorage.getItem('scriptUrl'); if(saved) input.value=saved; }
+  updateStoreDropdowns();
+  updateCustomerDropdowns();
+  updateCategoryDropdowns();
+  updateProductDropdowns();
+  updateProductsTable();
+  updateSummary();
 }
 init();
+
+/* ====== EXTRA: CSS for error highlight (เผื่อยังไม่มีใน <style>) ====== */
+const style = document.createElement('style');
+style.textContent = `.input-error{outline:2px solid #ef4444;border-color:#ef4444!important}`;
+document.head.appendChild(style);
 </script>
 </body>
 </html>
