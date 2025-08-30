@@ -1,670 +1,454 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>🏪 ระบบบันทึกซื้อขายสินค้า — Plug2Plug</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Sarabun', sans-serif;
-      background: linear-gradient(135deg,#1e1b4b 0%,#7c2d12 25%,#1e40af 50%,#991b1b 75%,#1e1b4b 100%);
-      background-size: 400% 400%; animation: gradientShift 15s ease infinite; }
-    @keyframes gradientShift { 0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%} }
-    .tab-content{display:none}.tab-content.active{display:block}
-    .glass-effect{background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.18)}
-    .dark-glass{background:rgba(0,0,0,.3);backdrop-filter:blur(15px);border:1px solid rgba(255,255,255,.1)}
-    .neon-glow{box-shadow:0 0 20px rgba(59,130,246,.5)}
-    .red-glow{box-shadow:0 0 20px rgba(239,68,68,.5)}
-    .input-error{outline:2px solid #ef4444;border-color:#ef4444!important}
-    .badge{padding:.15rem .5rem;border-radius:.75rem;font-size:.75rem;border:1px solid}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plug2Plug POS — Final</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body{font-family:'Sarabun',sans-serif;background:linear-gradient(135deg,#1e1b4b 0%,#7c2d12 25%,#1e40af 50%,#991b1b 75%,#1e1b4b 100%);background-size:400% 400%;animation:grad 15s ease infinite}
+  @keyframes grad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+  .tab-content{display:none}.tab-content.active{display:block}
+  .glass{background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.18)}
+  .dark-glass{background:rgba(0,0,0,.3);backdrop-filter:blur(15px);border:1px solid rgba(255,255,255,.1)}
+  .badge{padding:.15rem .5rem;border-radius:.75rem;font-size:.75rem;border:1px solid}
+  .input-error{outline:2px solid #ef4444;border-color:#ef4444!important}
+</style>
 </head>
 <body class="min-h-screen text-white">
-  <div class="container mx-auto px-4 py-8 max-w-7xl">
-    <!-- Header -->
-    <div class="text-center mb-8">
-      <h1 class="text-5xl font-bold text-white mb-4 drop-shadow-2xl">🏪 ระบบบันทึกซื้อขายสินค้า</h1>
-      <p class="text-gray-200 text-lg">จัดการร้านค้าของคุณอย่างมืออาชีพ — autosync to Google Sheets</p>
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+  <div class="text-center mb-8">
+    <h1 class="text-5xl font-bold mb-2">🏪 Plug2Plug POS</h1>
+    <p class="text-gray-200">ครบ—บันทึกซื้อ/ขาย/สินค้า • Autosync Google Sheets • PDF 3 หน้า</p>
+  </div>
+
+  <div class="dark-glass rounded-xl shadow-2xl mb-6">
+    <div class="flex flex-wrap border-b border-gray-600">
+      <button class="tab-btn px-6 py-4 font-medium text-blue-400 border-b-2 border-blue-400" data-tab="buy">🛒 ซื้อ</button>
+      <button class="tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white" data-tab="sell">💰 ขาย</button>
+      <button class="tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white" data-tab="products">📦 สินค้า</button>
+      <button class="tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white" data-tab="summary">📊 สรุป</button>
+      <button class="tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white" data-tab="reports">📄 รายงาน</button>
     </div>
-
-    <!-- Nav -->
-    <div class="dark-glass rounded-xl shadow-2xl mb-8">
-      <div class="flex flex-wrap border-b border-gray-600">
-        <button class="tab-btn px-6 py-4 font-medium text-blue-400 border-b-2 border-blue-400 neon-glow" data-tab="buy">🛒 หน้าซื้อสินค้า</button>
-        <button class="tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white hover:neon-glow transition-all" data-tab="sell">💰 หน้าขายสินค้า</button>
-        <button class="tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white hover:neon-glow transition-all" data-tab="products">📦 รายการสินค้า</button>
-        <button class="tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white hover:neon-glow transition-all" data-tab="summary">📊 ยอดซื้อ</button>
-        <button class="tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white hover:red-glow transition-all" data-tab="reports">📄 รายงาน</button>
+    <div class="p-4 flex flex-col md:flex-row gap-3 items-start md:items-center">
+      <div class="flex-1 w-full">
+        <label class="block text-sm text-gray-300 mb-1">Google Apps Script URL (Web App /exec)</label>
+        <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/XXXX/exec" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg">
       </div>
-      <!-- Script URL + controls -->
-      <div class="p-4 flex flex-col md:flex-row gap-3 items-start md:items-center">
-        <div class="flex-1 w-full">
-          <label class="block text-sm text-gray-300 mb-1">Google Apps Script URL (Web App — /exec หรือ /dev)</label>
-          <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg" />
-        </div>
-        <div class="flex gap-2">
-          <button id="setupSheetsBtn" class="px-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 rounded-lg">⚙️ ตั้งค่าเริ่มต้น</button>
-          <button id="loadFromSheetsBtn" class="px-3 py-2 bg-gradient-to-r from-purple-500 to-violet-600 rounded-lg">📥 โหลดจาก Sheets</button>
-          <button id="syncToSheetsBtn" class="px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">📊 ส่งข้อมูลไป Sheets</button>
-        </div>
-        <div id="syncStatus" class="text-sm text-gray-300">พร้อมใช้งาน</div>
+      <div class="flex gap-2">
+        <button id="setupSheetsBtn" class="px-3 py-2 bg-slate-700 rounded-lg">⚙️ ตั้งค่าเริ่มต้น</button>
+        <button id="loadFromSheetsBtn" class="px-3 py-2 bg-purple-600 rounded-lg">📥 โหลด</button>
+        <button id="syncToSheetsBtn" class="px-3 py-2 bg-indigo-600 rounded-lg">📊 ส่งขึ้นชีต</button>
       </div>
+      <div id="syncStatus" class="text-sm text-gray-300">พร้อมใช้งาน</div>
     </div>
+  </div>
 
-    <!-- Buy -->
-    <div id="buy" class="tab-content active">
-      <div class="dark-glass rounded-xl shadow-2xl p-6">
-        <h2 class="text-2xl font-bold mb-6">🛒 บันทึกการซื้อสินค้า</h2>
-        <form id="buyForm" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label class="block text-sm text-gray-200 mb-2">วันที่</label>
-              <input type="date" id="buyDate" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required>
-            </div>
-            <div>
-              <label class="block text-sm text-gray-200 mb-2">ร้านที่ซื้อ</label>
-              <div class="flex gap-2">
-                <select id="buyStore" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required>
-                  <option value="">เลือกร้าน</option>
-                </select>
-                <button type="button" id="addStoreBtn" class="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg">เพิ่มร้าน</button>
-              </div>
-            </div>
-          </div>
-          <div class="border-t border-gray-600 pt-6">
-            <h3 class="text-lg font-semibold mb-4">รายการสินค้า</h3>
-            <div id="buyItems">
-              <div class="buy-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 glass-effect rounded-lg border border-gray-600">
-                <div>
-                  <label class="block text-sm text-gray-200 mb-1">สินค้า</label>
-                  <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required><option value="">เลือกสินค้า</option></select>
-                </div>
-                <div>
-                  <label class="block text-sm text-gray-200 mb-1">จำนวน</label>
-                  <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" min="1" value="1" required>
-                </div>
-                <div>
-                  <label class="block text-sm text-gray-200 mb-1">ราคา (฿)</label>
-                  <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" step="0.01" min="0" required>
-                </div>
-                <div class="flex items-end">
-                  <button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 rounded-lg">ลบ</button>
-                </div>
-              </div>
-            </div>
-            <button type="button" id="addBuyItem" class="mb-4 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg">+ เพิ่มรายการ</button>
-          </div>
-          <div class="flex justify-end">
-            <button type="submit" class="px-8 py-3 bg-gradient-to-r from-gray-800 to-black rounded-lg">บันทึกการซื้อ</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Sell -->
-    <div id="sell" class="tab-content">
-      <div class="dark-glass rounded-xl shadow-2xl p-6">
-        <h2 class="text-2xl font-bold mb-6">💰 บันทึกการขายสินค้า</h2>
-        <form id="sellForm" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label class="block text-sm text-gray-200 mb-2">วันที่</label>
-              <input type="date" id="sellDate" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required>
-            </div>
-            <div>
-              <label class="block text-sm text-gray-200 mb-2">ลูกค้า</label>
-              <div class="flex gap-2">
-                <select id="sellCustomer" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required>
-                  <option value="">เลือกลูกค้า</option>
-                </select>
-                <button type="button" id="addCustomerBtn" class="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg">เพิ่มลูกค้า</button>
-              </div>
-            </div>
-          </div>
-          <div class="border-t border-gray-600 pt-6">
-            <h3 class="text-lg font-semibold mb-4">รายการสินค้า</h3>
-            <div id="sellItems">
-              <div class="sell-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 glass-effect rounded-lg border border-gray-600">
-                <div>
-                  <label class="block text-sm text-gray-200 mb-1">สินค้า</label>
-                  <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required><option value="">เลือกสินค้า</option></select>
-                </div>
-                <div>
-                  <label class="block text-sm text-gray-200 mb-1">จำนวน</label>
-                  <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" min="1" value="1" required>
-                </div>
-                <div>
-                  <label class="block text-sm text-gray-200 mb-1">ราคาขาย (฿)</label>
-                  <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" step="0.01" min="0" required>
-                </div>
-                <div class="flex items-end">
-                  <button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 rounded-lg">ลบ</button>
-                </div>
-              </div>
-            </div>
-            <button type="button" id="addSellItem" class="mb-4 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg">+ เพิ่มรายการ</button>
-          </div>
-          <div class="flex justify-end">
-            <button type="submit" class="px-8 py-3 bg-gradient-to-r from-gray-800 to-black rounded-lg">บันทึกการขาย</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Products -->
-    <div id="products" class="tab-content">
-      <div class="dark-glass rounded-xl shadow-2xl p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold">📦 รายการสินค้า</h2>
-          <button id="addProductBtn" class="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg">+ เพิ่มสินค้า</button>
-        </div>
-        <div id="productForm" class="hidden mb-6 p-4 dark-glass rounded-lg">
-          <h3 class="text-lg font-semibold mb-4">เพิ่มสินค้าใหม่</h3>
-          <form id="addProductForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div><label class="block text-sm mb-1">ชื่อสินค้า</label><input id="productName" type="text" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required></div>
-            <div>
-              <label class="block text-sm mb-1">หมวดหมู่</label>
-              <div class="flex gap-2">
-                <select id="productCategory" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required>
-                  <option value="">เลือกหมวดหมู่</option>
-                  <option>อาหาร</option><option>เครื่องดื่ม</option><option>ขนม</option><option>เครื่องใช้</option><option>อื่นๆ</option>
-                </select>
-                <button type="button" id="addCategoryBtn" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg">เพิ่มหมวด</button>
-              </div>
-            </div>
-            <div><label class="block text-sm mb-1">ราคาซื้อ (฿)</label><input id="productBuyPrice" type="number" step="0.01" min="0" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required></div>
-            <div><label class="block text-sm mb-1">ราคาขาย (฿)</label><input id="productSellPrice" type="number" step="0.01" min="0" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required></div>
-            <div class="flex items-center"><input id="productHasVat" type="checkbox" class="mr-2"><label for="productHasVat" class="text-sm">มี VAT 7%</label></div>
-            <div class="flex gap-2">
-              <button type="submit" class="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 rounded-lg">บันทึก</button>
-              <button type="button" id="cancelProductBtn" class="px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 rounded-lg">ยกเลิก</button>
-            </div>
-          </form>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead>
-              <tr class="border-b border-gray-600">
-                <th class="text-left py-3 px-4">ชื่อสินค้า</th>
-                <th class="text-left py-3 px-4">หมวดหมู่</th>
-                <th class="text-left py-3 px-4">ราคาซื้อ</th>
-                <th class="text-left py-3 px-4">ราคาขาย</th>
-                <th class="text-left py-3 px-4">VAT</th>
-                <th class="text-left py-3 px-4">ราคารวม VAT</th>
-                <th class="text-left py-3 px-4">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody id="productsTable">
-              <tr><td colspan="7" class="text-center py-8 text-gray-400">ยังไม่มีสินค้า</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Reports -->
-    <div id="reports" class="tab-content">
-      <div class="space-y-6">
-        <div class="dark-glass rounded-xl shadow-2xl p-6">
-          <h2 class="text-2xl font-bold mb-6">📄 รายงานประจำเดือน</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label class="block text-sm mb-2">เลือกเดือน</label>
-              <input type="month" id="reportMonth" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg">
-            </div>
-            <div class="flex items-end gap-2">
-              <button id="generatePDFBtn" class="px-6 py-2 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg red-glow">📄 สร้างรายงาน PDF</button>
-              <span class="badge text-gray-300 border-gray-500">เซิร์ฟเวอร์ก่อน / เบราว์เซอร์สำรอง</span>
-            </div>
-          </div>
-          <div class="border-t border-gray-600 pt-6">
-            <h3 class="text-lg font-semibold mb-4">🔗 เชื่อมต่อ Google Sheets</h3>
-            <div id="syncStatus2" class="text-sm text-gray-300">ถ้าเจอเน็ตล่ม หน้าเว็บจะเก็บข้อมูลไว้ก่อน</div>
-          </div>
-        </div>
-
-        <div class="dark-glass rounded-xl shadow-2xl p-6">
-          <h3 class="text-lg font-semibold mb-4">📊 สรุปรายงานเดือนนี้</h3>
-          <div id="monthlyPreview" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="glass-effect p-4 rounded-lg text-center"><div class="text-2xl font-bold text-blue-400" id="totalBuyAmount">฿0</div><div class="text-sm text-gray-300">ยอดซื้อรวม</div></div>
-            <div class="glass-effect p-4 rounded-lg text-center"><div class="text-2xl font-bold text-green-400" id="totalSellAmount">฿0</div><div class="text-sm text-gray-300">ยอดขายรวม</div></div>
-            <div class="glass-effect p-4 rounded-lg text-center"><div class="text-2xl font-bold text-red-400" id="totalVatAmount">฿0</div><div class="text-sm text-gray-300">VAT รวม</div></div>
-            <div class="glass-effect p-4 rounded-lg text-center"><div class="text-2xl font-bold text-yellow-400" id="totalProfit">฿0</div><div class="text-sm text-gray-300">กำไรรวม</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Summary -->
-    <div id="summary" class="tab-content">
-      <div class="space-y-6">
+  <!-- BUY -->
+  <div id="buy" class="tab-content active">
+    <div class="dark-glass rounded-xl p-6">
+      <h2 class="text-2xl font-bold mb-6">🛒 บันทึกการซื้อ</h2>
+      <form id="buyForm" class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="dark-glass rounded-xl shadow-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">✅ รายการมี VAT</h3>
-            <div class="space-y-2">
-              <div class="flex justify-between"><span class="text-gray-300">จำนวนรายการ:</span><span id="vatItemsCount" class="font-semibold">0</span></div>
-              <div class="flex justify-between"><span class="text-gray-300">ยอดรวม (ไม่รวม VAT):</span><span id="vatSubtotal" class="font-semibold">฿0</span></div>
-              <div class="flex justify-between"><span class="text-gray-300">VAT 7%:</span><span id="vatAmount" class="font-semibold text-red-400">฿0</span></div>
-              <div class="flex justify-between border-t border-gray-600 pt-2"><span class="font-medium">ยอดรวม (รวม VAT):</span><span id="vatTotal" class="font-bold text-green-400">฿0</span></div>
-            </div>
-          </div>
-          <div class="dark-glass rounded-xl shadow-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">❌ รายการไม่มี VAT</h3>
-            <div class="space-y-2">
-              <div class="flex justify-between"><span class="text-gray-300">จำนวนรายการ:</span><span id="noVatItemsCount" class="font-semibold">0</span></div>
-              <div class="flex justify-between border-t border-gray-600 pt-2"><span class="font-medium">ยอดรวม:</span><span id="noVatTotal" class="font-bold text-blue-400">฿0</span></div>
+          <div><label class="block text-sm mb-1">วันที่</label><input type="date" id="buyDate" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required></div>
+          <div>
+            <label class="block text-sm mb-1">ร้าน</label>
+            <div class="flex gap-2">
+              <select id="buyStore" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required><option value="">เลือกร้าน</option></select>
+              <button type="button" id="addStoreBtn" class="px-4 py-2 bg-emerald-600 rounded-lg">เพิ่มร้าน</button>
             </div>
           </div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="dark-glass rounded-xl shadow-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">รายละเอียดสินค้ามี VAT</h3>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead><tr class="border-b border-gray-600"><th class="text-left py-2 px-2">สินค้า</th><th class="text-left py-2 px-2">จำนวน</th><th class="text-left py-2 px-2">ราคา</th><th class="text-left py-2 px-2">รวม</th></tr></thead>
-                <tbody id="vatItemsList"><tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr></tbody>
-              </table>
+        <div class="border-t border-gray-600 pt-6">
+          <div id="buyItems">
+            <div class="buy-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 glass rounded-lg border border-gray-600">
+              <div><label class="block text-sm mb-1">สินค้า</label><select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required><option value="">เลือกสินค้า</option></select></div>
+              <div><label class="block text-sm mb-1">จำนวน</label><input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" min="1" value="1" required></div>
+              <div><label class="block text-sm mb-1">ราคา (฿)</label><input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" step="0.01" min="0" required></div>
+              <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-red-600 rounded-lg">ลบ</button></div>
             </div>
           </div>
-          <div class="dark-glass rounded-xl shadow-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">รายละเอียดสินค้าไม่มี VAT</h3>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead><tr class="border-b border-gray-600"><th class="text-left py-2 px-2">สินค้า</th><th class="text-left py-2 px-2">จำนวน</th><th class="text-left py-2 px-2">ราคา</th><th class="text-left py-2 px-2">รวม</th></tr></thead>
-                <tbody id="noVatItemsList"><tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr></tbody>
-              </table>
+          <button type="button" id="addBuyItem" class="mb-4 px-4 py-2 bg-blue-600 rounded-lg">+ เพิ่มรายการ</button>
+        </div>
+        <div class="flex justify-end"><button type="submit" class="px-8 py-3 bg-black rounded-lg">บันทึกการซื้อ</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SELL -->
+  <div id="sell" class="tab-content">
+    <div class="dark-glass rounded-xl p-6">
+      <h2 class="text-2xl font-bold mb-6">💰 บันทึกการขาย</h2>
+      <form id="sellForm" class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div><label class="block text-sm mb-1">วันที่</label><input type="date" id="sellDate" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required></div>
+          <div>
+            <label class="block text-sm mb-1">ลูกค้า</label>
+            <div class="flex gap-2">
+              <select id="sellCustomer" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required><option value="">เลือกลูกค้า</option></select>
+              <button type="button" id="addCustomerBtn" class="px-4 py-2 bg-emerald-600 rounded-lg">เพิ่มลูกค้า</button>
             </div>
+          </div>
+        </div>
+        <div class="border-t border-gray-600 pt-6">
+          <div id="sellItems">
+            <div class="sell-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 glass rounded-lg border border-gray-600">
+              <div><label class="block text-sm mb-1">สินค้า</label><select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required><option value="">เลือกสินค้า</option></select></div>
+              <div><label class="block text-sm mb-1">จำนวน</label><input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" min="1" value="1" required></div>
+              <div><label class="block text-sm mb-1">ราคาขาย (฿)</label><input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" step="0.01" min="0" required></div>
+              <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-red-600 rounded-lg">ลบ</button></div>
+            </div>
+          </div>
+          <button type="button" id="addSellItem" class="mb-4 px-4 py-2 bg-blue-600 rounded-lg">+ เพิ่มรายการ</button>
+        </div>
+        <div class="flex justify-end"><button type="submit" class="px-8 py-3 bg-black rounded-lg">บันทึกการขาย</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div id="products" class="tab-content">
+    <div class="dark-glass rounded-xl p-6">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold">📦 รายการสินค้า</h2>
+        <button id="addProductBtn" class="px-4 py-2 bg-blue-600 rounded-lg">+ เพิ่มสินค้า</button>
+      </div>
+      <div id="productForm" class="hidden mb-6 p-4 dark-glass rounded-lg">
+        <h3 class="text-lg font-semibold mb-4">เพิ่มสินค้าใหม่</h3>
+        <form id="addProductForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div><label class="block text-sm mb-1">ชื่อสินค้า</label><input id="productName" type="text" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required></div>
+          <div>
+            <label class="block text-sm mb-1">หมวดหมู่</label>
+            <div class="flex gap-2">
+              <select id="productCategory" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required>
+                <option value="">เลือกหมวดหมู่</option>
+                <option>อาหาร</option><option>เครื่องดื่ม</option><option>ขนม</option><option>เครื่องใช้</option><option>อื่นๆ</option>
+              </select>
+              <button type="button" id="addCategoryBtn" class="px-4 py-2 bg-purple-600 rounded-lg">เพิ่มหมวด</button>
+            </div>
+          </div>
+          <div><label class="block text-sm mb-1">ราคาซื้อ (฿)</label><input id="productBuyPrice" type="number" step="0.01" min="0" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required></div>
+          <div><label class="block text-sm mb-1">ราคาขาย (฿)</label><input id="productSellPrice" type="number" step="0.01" min="0" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required></div>
+          <div class="flex items-center"><input id="productHasVat" type="checkbox" class="mr-2"><label for="productHasVat" class="text-sm">มี VAT 7%</label></div>
+          <div class="flex gap-2"><button type="submit" class="px-4 py-2 bg-emerald-600 rounded-lg">บันทึก</button><button type="button" id="cancelProductBtn" class="px-4 py-2 bg-gray-700 rounded-lg">ยกเลิก</button></div>
+        </form>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead><tr class="border-b border-gray-600"><th class="text-left py-3 px-4">ชื่อสินค้า</th><th class="text-left py-3 px-4">หมวดหมู่</th><th class="text-left py-3 px-4">ราคาซื้อ</th><th class="text-left py-3 px-4">ราคาขาย</th><th class="text-left py-3 px-4">VAT</th><th class="text-left py-3 px-4">ราคารวม VAT</th><th class="text-left py-3 px-4">จัดการ</th></tr></thead>
+          <tbody id="productsTable"><tr><td colspan="7" class="text-center py-8 text-gray-400">ยังไม่มีสินค้า</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div id="reports" class="tab-content">
+    <div class="dark-glass rounded-xl p-6 space-y-6">
+      <div>
+        <h2 class="text-2xl font-bold mb-6">📄 รายงานประจำเดือน</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+          <div><label class="block text-sm mb-1">เลือกเดือน</label><input type="month" id="reportMonth" class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg"></div>
+          <div class="flex items-end gap-2">
+            <button id="generatePDFBtn" class="px-6 py-2 bg-pink-600 rounded-lg">📄 สร้างรายงาน PDF</button>
+            <span class="badge text-gray-300 border-gray-500">เซิร์ฟเวอร์ก่อน / เบราว์เซอร์สำรอง</span>
+          </div>
+        </div>
+        <div id="syncStatus2" class="text-sm text-gray-300">ถ้าเน็ตล่ม ข้อมูลยังอยู่ในเครื่อง</div>
+      </div>
+      <div>
+        <h3 class="text-lg font-semibold mb-4">📊 สรุปเดือนนี้</h3>
+        <div id="monthlyPreview" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass p-4 rounded text-center"><div class="text-2xl font-bold text-blue-400" id="totalBuyAmount">฿0</div><div class="text-sm text-gray-300">ยอดซื้อรวม</div></div>
+          <div class="glass p-4 rounded text-center"><div class="text-2xl font-bold text-green-400" id="totalSellAmount">฿0</div><div class="text-sm text-gray-300">ยอดขายรวม</div></div>
+          <div class="glass p-4 rounded text-center"><div class="text-2xl font-bold text-red-400" id="totalVatAmount">฿0</div><div class="text-sm text-gray-300">VAT รวม</div></div>
+          <div class="glass p-4 rounded text-center"><div class="text-2xl font-bold text-yellow-400" id="totalProfit">฿0</div><div class="text-sm text-gray-300">กำไรรวม</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div id="summary" class="tab-content">
+    <div class="dark-glass rounded-xl p-6 space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass p-4 rounded">
+          <h3 class="text-lg font-semibold mb-3">✅ มี VAT</h3>
+          <div class="space-y-2">
+            <div class="flex justify-between"><span>จำนวนรายการ:</span><span id="vatItemsCount" class="font-semibold">0</span></div>
+            <div class="flex justify-between"><span>ยอดรวม (ไม่รวม VAT):</span><span id="vatSubtotal" class="font-semibold">฿0</span></div>
+            <div class="flex justify-between"><span>VAT 7%:</span><span id="vatAmount" class="font-semibold text-red-400">฿0</span></div>
+            <div class="flex justify-between border-t border-gray-600 pt-2"><span class="font-medium">ยอดรวม (รวม VAT):</span><span id="vatTotal" class="font-bold text-green-400">฿0</span></div>
+          </div>
+        </div>
+        <div class="glass p-4 rounded">
+          <h3 class="text-lg font-semibold mb-3">❌ ไม่มี VAT</h3>
+          <div class="space-y-2">
+            <div class="flex justify-between"><span>จำนวนรายการ:</span><span id="noVatItemsCount" class="font-semibold">0</span></div>
+            <div class="flex justify-between border-t border-gray-600 pt-2"><span class="font-medium">ยอดรวม:</span><span id="noVatTotal" class="font-bold text-blue-400">฿0</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass p-4 rounded">
+          <h3 class="text-lg font-semibold mb-3">รายละเอียดมี VAT</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b border-gray-600"><th class="text-left py-2 px-2">สินค้า</th><th class="text-left py-2 px-2">จำนวน</th><th class="text-left py-2 px-2">ราคา</th><th class="text-left py-2 px-2">รวม</th></tr></thead>
+              <tbody id="vatItemsList"><tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="glass p-4 rounded">
+          <h3 class="text-lg font-semibold mb-3">รายละเอียดไม่มี VAT</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b border-gray-600"><th class="text-left py-2 px-2">สินค้า</th><th class="text-left py-2 px-2">จำนวน</th><th class="text-left py-2 px-2">ราคา</th><th class="text-left py-2 px-2">รวม</th></tr></thead>
+              <tbody id="noVatItemsList"><tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr></tbody>
+            </table>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
-  </div> <!-- container -->
+</div>
 
-  <script>
-    /* ========= Local Storage ========= */
-    let products = JSON.parse(localStorage.getItem('products')) || [];
-    let stores = JSON.parse(localStorage.getItem('stores')) || ['เซเว่น','โลตัส','บิ๊กซี','แม็คโคร'];
-    let customers = JSON.parse(localStorage.getItem('customers')) || ['ลูกค้าทั่วไป'];
-    let categories = JSON.parse(localStorage.getItem('categories')) || ['อาหาร','เครื่องดื่ม','ขนม','เครื่องใช้','อื่นๆ'];
-    let buyTransactions = JSON.parse(localStorage.getItem('buyTransactions')) || [];
-    let sellTransactions = JSON.parse(localStorage.getItem('sellTransactions')) || [];
+<script>
+/* ===== Local storage ===== */
+let products = JSON.parse(localStorage.getItem('products')) || [];
+let stores = JSON.parse(localStorage.getItem('stores')) || ['เซเว่น','โลตัส','บิ๊กซี','แม็คโคร'];
+let customers = JSON.parse(localStorage.getItem('customers')) || ['ลูกค้าทั่วไป'];
+let categories = JSON.parse(localStorage.getItem('categories')) || ['อาหาร','เครื่องดื่ม','ขนม','เครื่องใช้','อื่นๆ'];
+let buyTransactions = JSON.parse(localStorage.getItem('buyTransactions')) || [];
+let sellTransactions = JSON.parse(localStorage.getItem('sellTransactions')) || [];
+function saveToStorage(){ localStorage.setItem('products',JSON.stringify(products)); localStorage.setItem('stores',JSON.stringify(stores)); localStorage.setItem('customers',JSON.stringify(customers)); localStorage.setItem('categories',JSON.stringify(categories)); localStorage.setItem('buyTransactions',JSON.stringify(buyTransactions)); localStorage.setItem('sellTransactions',JSON.stringify(sellTransactions)); }
+function formatCurrency(n){ return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(n||0); }
 
-    function saveToStorage(){
-      localStorage.setItem('products', JSON.stringify(products));
-      localStorage.setItem('stores', JSON.stringify(stores));
-      localStorage.setItem('customers', JSON.stringify(customers));
-      localStorage.setItem('categories', JSON.stringify(categories));
-      localStorage.setItem('buyTransactions', JSON.stringify(buyTransactions));
-      localStorage.setItem('sellTransactions', JSON.stringify(sellTransactions));
+/* ===== ID helpers ===== */
+const uid = (prefix='') => prefix + Math.random().toString(36).slice(2,8) + Date.now().toString(36);
+const sid = v => String(v ?? '');
+
+/* ===== Tabs ===== */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const tab=btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b=>b.className='tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white');
+    btn.className='tab-btn px-6 py-4 font-medium '+(tab==='reports'?'text-red-400 border-b-2 border-red-400':'text-blue-400 border-b-2 border-blue-400');
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    if(tab==='summary') updateSummary();
+    if(tab==='reports'){ updateMonthlyPreview(); const now=new Date(); document.getElementById('reportMonth').value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; }
+  });
+});
+
+/* ===== Dropdowns & Tables ===== */
+function updateStoreDropdowns(){ const s=document.getElementById('buyStore'); s.innerHTML='<option value="">เลือกร้าน</option>'+stores.map(v=>`<option>${v}</option>`).join(''); }
+function ensureDefaultCustomer(){ if(!customers.includes('ลูกค้าทั่วไป')) customers=['ลูกค้าทั่วไป',...customers]; }
+function updateCustomerDropdowns(){ ensureDefaultCustomer(); const s=document.getElementById('sellCustomer'); const cur=s.value; s.innerHTML='<option value="">เลือกลูกค้า</option>'+customers.map(v=>`<option>${v}</option>`).join(''); s.value=cur||'ลูกค้าทั่วไป'; }
+function updateCategoryDropdowns(){ const sel=document.getElementById('productCategory'); const cur=sel.value; sel.innerHTML='<option value="">เลือกหมวดหมู่</option>'+categories.map(v=>`<option>${v}</option>`).join(''); sel.value=cur; }
+function updateProductDropdowns(){ document.querySelectorAll('.product-select').forEach(sel=>{ const cur=sid(sel.value); sel.innerHTML='<option value="">เลือกสินค้า</option>'+products.map(p=>`<option value="${sid(p.id)}">${p.name}</option>`).join(''); sel.value=cur; }); }
+function updateProductsTable(){
+  const tbody=document.getElementById('productsTable');
+  if(!products.length){ tbody.innerHTML='<tr><td colspan="7" class="text-center py-8 text-gray-400">ยังไม่มีสินค้า</td></tr>'; return; }
+  tbody.innerHTML=products.map(p=>{
+    const vatPrice=p.hasVat?p.sellPrice*1.07:p.sellPrice;
+    return `<tr class="border-b border-gray-600">
+      <td class="py-3 px-4">${p.name}</td><td class="py-3 px-4">${p.category}</td>
+      <td class="py-3 px-4">${formatCurrency(p.buyPrice)}</td>
+      <td class="py-3 px-4">${formatCurrency(p.sellPrice)}</td>
+      <td class="py-3 px-4"><span class="badge ${p.hasVat?'text-green-300 border-green-500 bg-green-600/20':'text-gray-300 border-gray-500 bg-gray-600/20'}">${p.hasVat?'มี VAT':'ไม่มี VAT'}</span></td>
+      <td class="py-3 px-4 font-semibold">${formatCurrency(vatPrice)}</td>
+      <td class="py-3 px-4"><button onclick="deleteProduct('${sid(p.id)}')" class="text-red-400 hover:text-red-300 text-sm">🗑️ ลบ</button></td>
+    </tr>`;
+  }).join('');
+}
+function deleteProduct(id){ if(!confirm('ลบสินค้านี้?')) return; const key=sid(id); products=products.filter(p=>sid(p.id)!==key); saveToStorage(); updateProductsTable(); updateProductDropdowns(); syncNow('ลบสินค้า'); }
+
+/* ===== Add/Remove rows ===== */
+function addBuyItem(){ const c=document.getElementById('buyItems'); const d=document.createElement('div'); d.className='buy-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 glass rounded-lg border border-gray-600'; d.innerHTML=`<div><label class="block text-sm mb-1">สินค้า</label><select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required><option value="">เลือกสินค้า</option></select></div><div><label class="block text-sm mb-1">จำนวน</label><input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" min="1" value="1" required></div><div><label class="block text-sm mb-1">ราคา (฿)</label><input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" step="0.01" min="0" required></div><div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-red-600 rounded-lg">ลบ</button></div>`; c.appendChild(d); updateProductDropdowns(); }
+function addSellItem(){ const c=document.getElementById('sellItems'); const d=document.createElement('div'); d.className='sell-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 glass rounded-lg border border-gray-600'; d.innerHTML=`<div><label class="block text-sm mb-1">สินค้า</label><select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required><option value="">เลือกสินค้า</option></select></div><div><label class="block text-sm mb-1">จำนวน</label><input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" min="1" value="1" required></div><div><label class="block text-sm mb-1">ราคาขาย (฿)</label><input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" step="0.01" min="0" required></div><div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-red-600 rounded-lg">ลบ</button></div>`; c.appendChild(d); updateProductDropdowns(); }
+document.getElementById('addBuyItem').addEventListener('click',addBuyItem);
+document.getElementById('addSellItem').addEventListener('click',addSellItem);
+document.addEventListener('click',e=>{ if(e.target.classList.contains('remove-item')){ const row=e.target.closest('.buy-item,.sell-item'); const box=row.parentElement; if(box.children.length>1) row.remove(); else alert('ต้องมีอย่างน้อย 1 รายการ'); }});
+document.addEventListener('change',e=>{
+  if(e.target.classList.contains('product-select')){
+    const pid=sid(e.target.value); const prod=products.find(p=>sid(p.id)===pid);
+    if(prod){ const row=e.target.closest('.buy-item,.sell-item'); const price=row.querySelector('.price-input'); price.value=row.classList.contains('buy-item')?prod.buyPrice:prod.sellPrice; }
+  }
+});
+
+/* ===== Buttons: add master data ===== */
+document.getElementById('addStoreBtn').addEventListener('click',()=>{ const n=prompt('ชื่อร้าน:'); if(n && !stores.includes(n)){ stores.push(n); saveToStorage(); updateStoreDropdowns(); }});
+document.getElementById('addCustomerBtn').addEventListener('click',()=>{ const n=prompt('ชื่อลูกค้า:'); if(n && !customers.includes(n)){ customers.push(n); saveToStorage(); updateCustomerDropdowns(); }});
+document.getElementById('addCategoryBtn').addEventListener('click',()=>{ const n=prompt('ชื่อหมวดหมู่:'); if(n && !categories.includes(n)){ categories.push(n); saveToStorage(); updateCategoryDropdowns(); }});
+document.getElementById('addProductBtn').addEventListener('click',()=>document.getElementById('productForm').classList.remove('hidden'));
+document.getElementById('cancelProductBtn').addEventListener('click',()=>{ document.getElementById('productForm').classList.add('hidden'); document.getElementById('addProductForm').reset(); });
+
+/* ===== Add product ===== */
+document.getElementById('addProductForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const product = { id: uid('p_'), name: productName.value, category: productCategory.value, buyPrice: parseFloat(productBuyPrice.value), sellPrice: parseFloat(productSellPrice.value), hasVat: productHasVat.checked };
+  products.push(product); saveToStorage(); updateProductsTable(); updateProductDropdowns();
+  document.getElementById('productForm').classList.add('hidden'); e.target.reset();
+  syncNow('เพิ่มสินค้า');
+});
+
+/* ===== Validation & submit ===== */
+function validateLineItems(containerSelector){
+  const rows=[...document.querySelectorAll(containerSelector+' .buy-item, '+containerSelector+' .sell-item')];
+  let ok=true, msgs=[];
+  rows.forEach(row=>{
+    const sel=row.querySelector('.product-select'), qty=row.querySelector('.quantity-input'), price=row.querySelector('.price-input');
+    [sel,qty,price].forEach(x=>x&&x.classList.remove('input-error'));
+    const pid=sid(sel?.value), q=Number(qty?.value), p=Number(price?.value);
+    if(!pid || !products.find(pr=>sid(pr.id)===pid)){ ok=false; sel?.classList.add('input-error'); }
+    if(!(q>0)){ ok=false; qty?.classList.add('input-error'); }
+    if(!(p>=0)){ ok=false; price?.classList.add('input-error'); }
+  });
+  if(!ok) msgs.push('กรุณาเลือกสินค้า + จำนวน>0 + ราคา>=0 ให้ครบทุกบรรทัด');
+  return {ok, message: msgs.join('\n')};
+}
+
+document.getElementById('buyForm').addEventListener('submit',async e=>{
+  e.preventDefault(); const v=validateLineItems('#buyItems'); if(!v.ok) return alert(v.message);
+  const date=buyDate.value, store=buyStore.value; if(!store) return alert('เลือกร้าน');
+  const items=[]; document.querySelectorAll('.buy-item').forEach(r=>{ const pid=sid(r.querySelector('.product-select').value), q=Number(r.querySelector('.quantity-input').value), p=Number(r.querySelector('.price-input').value); const prod=products.find(x=>sid(x.id)===pid); if(pid && prod && q>0 && p>=0){ items.push({productId:pid,productName:prod.name,quantity:q,price:p,total:q*p,hasVat:!!prod.hasVat}); }});
+  if(!items.length) return alert('ต้องมีรายการอย่างน้อย 1 รายการ');
+  const tid=uid('buy_'); buyTransactions.push({id:tid,date,store,items,total:items.reduce((s,i)=>s+i.total,0)});
+  saveToStorage(); await syncNow('บันทึกซื้อ'); alert('บันทึกการซื้อเรียบร้อย!');
+  e.target.reset(); buyDate.value=new Date().toISOString().split('T')[0]; document.getElementById('buyItems').innerHTML=''; addBuyItem(); updateProductDropdowns();
+});
+
+document.getElementById('sellForm').addEventListener('submit',async e=>{
+  e.preventDefault(); const v=validateLineItems('#sellItems'); if(!v.ok) return alert(v.message);
+  const date=sellDate.value, customer=sellCustomer.value||'ลูกค้าทั่วไป';
+  const items=[]; document.querySelectorAll('.sell-item').forEach(r=>{ const pid=sid(r.querySelector('.product-select').value), q=Number(r.querySelector('.quantity-input').value), p=Number(r.querySelector('.price-input').value); const prod=products.find(x=>sid(x.id)===pid); if(pid && prod && q>0 && p>=0){ items.push({productId:pid,productName:prod.name,quantity:q,price:p,total:q*p,hasVat:!!prod.hasVat}); }});
+  if(!items.length) return alert('ต้องมีรายการอย่างน้อย 1 รายการ');
+  const tid=uid('sell_'); sellTransactions.push({id:tid,date,customer,items,total:items.reduce((s,i)=>s+i.total,0)});
+  saveToStorage(); await syncNow('บันทึกขาย'); alert('บันทึกการขายเรียบร้อย!');
+  e.target.reset(); sellDate.value=new Date().toISOString().split('T')[0]; document.getElementById('sellItems').innerHTML=''; addSellItem(); updateProductDropdowns(); updateCustomerDropdowns();
+});
+
+/* ===== Summary & Preview ===== */
+function updateSummary(){
+  const all=[]; buyTransactions.forEach(t=>t.items.forEach(i=>all.push(i))); sellTransactions.forEach(t=>t.items.forEach(i=>all.push(i)));
+  const vat=all.filter(i=>i.hasVat), novat=all.filter(i=>!i.hasVat);
+  const vsub=vat.reduce((s,i)=>s+i.total,0), v7=vsub*0.07, vtot=vsub+v7, ntot=novat.reduce((s,i)=>s+i.total,0);
+  vatItemsCount.textContent=vat.length; vatSubtotal.textContent=formatCurrency(vsub); vatAmount.textContent=formatCurrency(v7); vatTotal.textContent=formatCurrency(vtot); noVatItemsCount.textContent=novat.length; noVatTotal.textContent=formatCurrency(ntot);
+  const tbodyV=document.getElementById('vatItemsList'), tbodyN=document.getElementById('noVatItemsList');
+  tbodyV.innerHTML = vat.length? vat.map(i=>`<tr class="border-b border-gray-600"><td class="py-2 px-2">${i.productName}</td><td class="py-2 px-2">${i.quantity}</td><td class="py-2 px-2">${formatCurrency(i.price)}</td><td class="py-2 px-2 font-semibold">${formatCurrency(i.total)}</td></tr>`).join('') : '<tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr>';
+  tbodyN.innerHTML = novat.length? novat.map(i=>`<tr class="border-b border-gray-600"><td class="py-2 px-2">${i.productName}</td><td class="py-2 px-2">${i.quantity}</td><td class="py-2 px-2">${formatCurrency(i.price)}</td><td class="py-2 px-2 font-semibold">${formatCurrency(i.total)}</td></tr>`).join('') : '<tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr>';
+}
+function getMonthlyData(month){
+  const [Y,M]=month.split('-');
+  const filt=t=>{ const d=new Date(t.date); return d.getFullYear()==Y && (d.getMonth()+1)==Number(M); };
+  const mb=buyTransactions.filter(filt), ms=sellTransactions.filter(filt);
+  const all=[]; mb.forEach(t=>all.push(...t.items)); ms.forEach(t=>all.push(...t.items));
+  const vat=all.filter(i=>i.hasVat);
+  const totalBuy=mb.reduce((s,t)=>s+t.total,0), totalSell=ms.reduce((s,t)=>s+t.total,0), totalVat=vat.reduce((s,i)=>s+i.total*0.07,0);
+  return {buyTransactions:mb, sellTransactions:ms, vatItems:vat, totalBuy, totalSell, totalVat, profit: totalSell-totalBuy};
+}
+function updateMonthlyPreview(){
+  const now=new Date(); const m=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const md=getMonthlyData(m);
+  totalBuyAmount.textContent=formatCurrency(md.totalBuy); totalSellAmount.textContent=formatCurrency(md.totalSell); totalVatAmount.textContent=formatCurrency(md.totalVat); totalProfit.textContent=formatCurrency(md.profit);
+}
+
+/* ===== PDF Fallback (client) ===== */
+function generateMonthlyPDF(month){
+  const { jsPDF }=window.jspdf; const doc=new jsPDF(); doc.setFont('helvetica');
+  doc.setFontSize(20); doc.text('รายงานประจำเดือน',105,18,{align:'center'}); doc.setFontSize(12); doc.text(`เดือน: ${month}`,105,26,{align:'center'});
+  const md=getMonthlyData(month); let y=34;
+  doc.setFontSize(14); doc.text('หน้า 1: รายการสินค้าที่ซื้อ',14,y); y+=6;
+  doc.autoTable({ startY:y, head:[['วันที่','ร้าน','รายการ','ยอดรวม']], body: md.buyTransactions.map(t=>[t.date,t.store,t.items.map(i=>`${i.productName} (${i.quantity})`).join(', '),formatCurrency(t.total)]) });
+  doc.addPage(); y=20; doc.setFontSize(14); doc.text('หน้า 2: รายการสินค้าที่ขาย',14,y); y+=6;
+  doc.autoTable({ startY:y, head:[['วันที่','ลูกค้า','รายการ','ยอดรวม']], body: md.sellTransactions.map(t=>[t.date,t.customer,t.items.map(i=>`${i.productName} (${i.quantity})`).join(', '),formatCurrency(t.total)]) });
+  doc.addPage(); y=20; doc.setFontSize(14); doc.text('หน้า 3: สรุปยอด',14,y); y+=8;
+  doc.setFontSize(12); doc.text(`ยอดซื้อรวม: ${formatCurrency(md.totalBuy)}`,14,y); y+=6; doc.text(`ยอดขายรวม: ${formatCurrency(md.totalSell)}`,14,y); y+=6; doc.text(`VAT รวม: ${formatCurrency(md.totalVat)}`,14,y); y+=6; doc.text(`กำไรรวม: ${formatCurrency(md.profit)}`,14,y);
+  doc.save(`รายงาน_${month.replace('-','_')}.pdf`);
+}
+
+/* ===== Network helpers ===== */
+const getScriptUrl = ()=> (document.getElementById('scriptUrl')?.value || localStorage.getItem('scriptUrl') || '').trim();
+const rememberScriptUrl = ()=>{ const u=getScriptUrl(); if(u) localStorage.setItem('scriptUrl',u); };
+function setSyncStatus(msg,color='text-gray-300'){ const el=document.getElementById('syncStatus'); if(el){ el.textContent=msg; el.className=`text-sm ${color}`; } const el2=document.getElementById('syncStatus2'); if(el2 && color.includes('green')){ el2.textContent=msg; el2.className=`text-sm ${color}`; } }
+function errorToString(err){ return (err?.name||'Error')+(err?.message?': '+err.message:''); }
+
+async function httpJson(url, {method='GET', headers={}, body=null, timeoutMs=12000}={}, retries=1){
+  for(let a=0;a<=retries;a++){
+    const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(), timeoutMs);
+    try{
+      const res=await fetch(url,{method,headers,body,signal:ctrl.signal});
+      clearTimeout(t);
+      const text=await res.text(); let data={}; try{ data=text?JSON.parse(text):{} }catch(_){}
+      if(!res.ok) throw new Error((data&&data.error)||text||`HTTP ${res.status}`);
+      return data;
+    }catch(err){
+      clearTimeout(t);
+      if(a===retries) throw err;
+      await new Promise(r=>setTimeout(r,600*(a+1)));
     }
-    function formatCurrency(n){ return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(n||0); }
+  }
+}
+async function postPlainJson(url, obj){
+  return httpJson(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(obj), timeoutMs:15000 }, 2);
+}
 
-    /* ========= Tabs ========= */
-    document.querySelectorAll('.tab-btn').forEach(btn=>{
-      btn.addEventListener('click',function(){
-        const tabId=this.dataset.tab;
-        document.querySelectorAll('.tab-btn').forEach(b=>b.className='tab-btn px-6 py-4 font-medium text-gray-300 hover:text-white hover:neon-glow transition-all');
-        if(tabId==='reports') this.className='tab-btn px-6 py-4 font-medium text-red-400 border-b-2 border-red-400 red-glow';
-        else this.className='tab-btn px-6 py-4 font-medium text-blue-400 border-b-2 border-blue-400 neon-glow';
-        document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        if(tabId==='summary') updateSummary();
-        if(tabId==='reports'){ updateMonthlyPreview(); const now=new Date(); document.getElementById('reportMonth').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; }
-      });
-    });
+/* ===== Sync & actions ===== */
+async function ping(u){ return httpJson(u,{method:'GET',timeoutMs:6000},1); }
+async function syncNow(reason='auto'){
+  const u=getScriptUrl(); if(!u) { setSyncStatus('ยังไม่ได้ใส่ Apps Script URL','text-red-400'); return {ok:false}; }
+  setSyncStatus(`กำลังส่งข้อมูล (${reason})...`,'text-yellow-400');
+  const payload={ products, buyTransactions, sellTransactions, stores, customers, categories, timestamp:new Date().toISOString() };
+  try{
+    await ping(u);
+    const data=await postPlainJson(u,payload);
+    if(data?.ok){ setSyncStatus(`ส่งข้อมูลสำเร็จ (${reason})`,'text-green-400'); return {ok:true}; }
+    setSyncStatus(`สคริปต์ตอบผิดพลาด: ${data?.error||'unknown'}`,'text-red-400'); return {ok:false};
+  }catch(err){
+    console.error('[SYNC FAIL]',errorToString(err),payload);
+    setSyncStatus('ส่งข้อมูลไม่สำเร็จ: '+errorToString(err),'text-red-400'); return {ok:false};
+  }
+}
 
-    /* ========= Dropdown Updates ========= */
-    function updateStoreDropdowns(){
-      const s=document.getElementById('buyStore');
-      s.innerHTML='<option value="">เลือกร้าน</option>'+stores.map(v=>`<option>${v}</option>`).join('');
-    }
-    function ensureDefaultCustomer(){
-      if(!Array.isArray(customers)) customers=[];
-      if(!customers.includes('ลูกค้าทั่วไป')) customers=['ลูกค้าทั่วไป', ...customers];
-    }
-    function updateCustomerDropdowns(){
-      ensureDefaultCustomer();
-      const s=document.getElementById('sellCustomer');
-      const cur=s.value;
-      s.innerHTML='<option value="">เลือกลูกค้า</option>'+customers.map(v=>`<option>${v}</option>`).join('');
-      s.value = cur || 'ลูกค้าทั่วไป';
-    }
-    function updateCategoryDropdowns(){
-      const sel=document.getElementById('productCategory'); const cur=sel.value;
-      sel.innerHTML='<option value="">เลือกหมวดหมู่</option>'+categories.map(v=>`<option>${v}</option>`).join('');
-      sel.value=cur;
-    }
-    function updateProductDropdowns(){
-      document.querySelectorAll('.product-select').forEach(sel=>{
-        const cur=sel.value;
-        sel.innerHTML='<option value="">เลือกสินค้า</option>'+products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-        sel.value=cur;
-      });
-    }
-    function updateProductsTable(){
-      const tbody=document.getElementById('productsTable');
-      if(!products.length){ tbody.innerHTML='<tr><td colspan="7" class="text-center py-8 text-gray-400">ยังไม่มีสินค้า</td></tr>'; return; }
-      tbody.innerHTML=products.map(p=>{
-        const vatPrice=p.hasVat? p.sellPrice*1.07 : p.sellPrice;
-        return `<tr class="border-b border-gray-600 hover:bg-gray-800/50">
-          <td class="py-3 px-4">${p.name}</td>
-          <td class="py-3 px-4">${p.category}</td>
-          <td class="py-3 px-4">${formatCurrency(p.buyPrice)}</td>
-          <td class="py-3 px-4">${formatCurrency(p.sellPrice)}</td>
-          <td class="py-3 px-4"><span class="badge ${p.hasVat?'text-green-300 border-green-500 bg-green-600/20':'text-gray-300 border-gray-500 bg-gray-600/20'}">${p.hasVat?'มี VAT':'ไม่มี VAT'}</span></td>
-          <td class="py-3 px-4 font-semibold">${formatCurrency(vatPrice)}</td>
-          <td class="py-3 px-4"><button onclick="deleteProduct(${p.id})" class="text-red-400 hover:text-red-300 text-sm">🗑️ ลบ</button></td>
-        </tr>`;
-      }).join('');
-    }
-    function deleteProduct(id){
-      if(confirm('คุณต้องการลบสินค้านี้หรือไม่?')){
-        products = products.filter(p=>p.id!==id);
-        saveToStorage(); updateProductsTable(); updateProductDropdowns();
-        syncNow('ลบสินค้า');
-      }
-    }
+document.getElementById('setupSheetsBtn').addEventListener('click', async ()=>{
+  try{
+    const u=getScriptUrl(); if(!u) return alert('ใส่ Apps Script URL ก่อน');
+    rememberScriptUrl(); setSyncStatus('กำลังตั้งค่า...','text-yellow-400');
+    const r=await httpJson(`${u}?action=setup`,{method:'GET',timeoutMs:12000},1);
+    if(r?.ok) setSyncStatus('ตั้งค่าเสร็จ!','text-green-400'); else setSyncStatus('ตั้งค่าไม่สำเร็จ','text-red-400');
+  }catch(e){ setSyncStatus('ตั้งค่าไม่สำเร็จ: '+errorToString(e),'text-red-400'); }
+});
+document.getElementById('loadFromSheetsBtn').addEventListener('click', async ()=>{
+  try{
+    const u=getScriptUrl(); if(!u) return alert('ใส่ Apps Script URL ก่อน');
+    rememberScriptUrl(); setSyncStatus('กำลังโหลด...','text-yellow-400');
+    const d=await httpJson(`${u}?action=load`,{method:'GET',timeoutMs:15000},2);
+    if(d.products) products=d.products; if(d.buyTransactions) buyTransactions=d.buyTransactions; if(d.sellTransactions) sellTransactions=d.sellTransactions; if(d.stores) stores=d.stores; if(d.customers) customers=d.customers; if(d.categories) categories=d.categories;
+    saveToStorage(); init(); setSyncStatus('โหลดสำเร็จ!','text-green-400');
+  }catch(e){ setSyncStatus('โหลดไม่สำเร็จ: '+errorToString(e),'text-red-400'); }
+});
+document.getElementById('syncToSheetsBtn').addEventListener('click',()=>{ rememberScriptUrl(); syncNow('กดปุ่มส่งข้อมูล'); });
 
-    /* ========= Item rows ========= */
-    function addBuyItem(){
-      const c=document.getElementById('buyItems');
-      const d=document.createElement('div');
-      d.className='buy-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 glass-effect rounded-lg border border-gray-600';
-      d.innerHTML=`
-        <div><label class="block text-sm text-gray-200 mb-1">สินค้า</label>
-          <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required><option value="">เลือกสินค้า</option></select></div>
-        <div><label class="block text-sm text-gray-200 mb-1">จำนวน</label>
-          <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" min="1" value="1" required></div>
-        <div><label class="block text-sm text-gray-200 mb-1">ราคา (฿)</label>
-          <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" step="0.01" min="0" required></div>
-        <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 rounded-lg">ลบ</button></div>`;
-      c.appendChild(d); updateProductDropdowns();
-    }
-    function addSellItem(){
-      const c=document.getElementById('sellItems');
-      const d=document.createElement('div');
-      d.className='sell-item grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 glass-effect rounded-lg border border-gray-600';
-      d.innerHTML=`
-        <div><label class="block text-sm text-gray-200 mb-1">สินค้า</label>
-          <select class="product-select w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" required><option value="">เลือกสินค้า</option></select></div>
-        <div><label class="block text-sm text-gray-200 mb-1">จำนวน</label>
-          <input type="number" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" min="1" value="1" required></div>
-        <div><label class="block text-sm text-gray-200 mb-1">ราคาขาย (฿)</label>
-          <input type="number" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg" step="0.01" min="0" required></div>
-        <div class="flex items-end"><button type="button" class="remove-item w-full px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 rounded-lg">ลบ</button></div>`;
-      c.appendChild(d); updateProductDropdowns();
-    }
-    document.getElementById('addBuyItem').addEventListener('click',addBuyItem);
-    document.getElementById('addSellItem').addEventListener('click',addSellItem);
-    document.addEventListener('click',e=>{
-      if(e.target.classList.contains('remove-item')){
-        const row=e.target.closest('.buy-item, .sell-item'); const box=row.parentElement;
-        if(box.children.length>1) row.remove(); else alert('ต้องมีรายการอย่างน้อย 1 รายการ');
-      }
-    });
-    document.addEventListener('change',e=>{
-      if(e.target.classList.contains('product-select')){
-        const pid=Number(e.target.value);
-        const p=products.find(x=>x.id===pid);
-        if(p){
-          const row=e.target.closest('.buy-item, .sell-item');
-          row.querySelector('.price-input').value = row.classList.contains('buy-item') ? p.buyPrice : p.sellPrice;
-        }
-      }
-    });
+document.getElementById('generatePDFBtn').addEventListener('click', async function(){
+  const m=document.getElementById('reportMonth').value; if(!m) return alert('กรุณาเลือกเดือน');
+  const u=getScriptUrl(); try{ if(u){ const r=await httpJson(`${u}?action=pdf&month=${encodeURIComponent(m)}`,{method:'GET',timeoutMs:25000},1); if(r?.ok && (r.downloadUrl||r.url)){ window.open(r.downloadUrl||r.url,'_blank'); return; } } }catch(_){}
+  generateMonthlyPDF(m); // fallback client
+});
 
-    /* ========= Network helpers ========= */
-    const isFileScheme = () => location.protocol==='file:';
-    const getScriptUrl = () => (document.getElementById('scriptUrl')?.value || localStorage.getItem('scriptUrl') || '').trim();
-    const rememberScriptUrl = () => { const u=getScriptUrl(); if(u) localStorage.setItem('scriptUrl',u); };
-
-    function setSyncStatus(msg,color='text-gray-300'){
-      const el=document.getElementById('syncStatus'); if(el){ el.textContent=msg; el.className=`text-sm ${color}`; }
-      const el2=document.getElementById('syncStatus2'); if(el2&&color.includes('green')){ el2.textContent=msg; el2.className=`text-sm ${color}`; }
-    }
-    function errorToString(err){ if(!err) return 'Unknown'; return (err.name||'Error')+(err.message?': '+err.message:''); }
-
-    async function httpJson(url, {method='GET', headers={}, body=null, timeoutMs=12000}={}, retries=1){
-      for(let a=0;a<=retries;a++){
-        const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(), timeoutMs);
-        try{
-          const res=await fetch(url,{method,headers,body,signal:ctrl.signal});
-          clearTimeout(t);
-          const text=await res.text(); let data={}; try{ data=text?JSON.parse(text):{} }catch(_){}
-          if(!res.ok){ throw new Error((data&&data.error)||text||`HTTP ${res.status}`); }
-          return data;
-        }catch(err){
-          clearTimeout(t);
-          if(a===retries) throw err;
-          await new Promise(r=>setTimeout(r,600*(a+1)));
-        }
-      }
-    }
-
-    function looksLikeAppsScript(url){
-      return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/(exec|dev)(\?.*)?$/.test(url);
-    }
-
-    async function ping(scriptUrl){
-      setSyncStatus('ทดสอบการเชื่อมต่อ...', 'text-yellow-400');
-      const r = await httpJson(scriptUrl, {method:'GET', timeoutMs:6000}, 1);
-      return r;
-    }
-
-    async function syncNow(reason='auto'){
-      if(isFileScheme()){ setSyncStatus('กรุณาเปิดผ่าน http(s):// ไม่ใช่ file://', 'text-red-400'); return {ok:false,error:'FILE_SCHEME'}; }
-      const scriptUrl=getScriptUrl(); if(!scriptUrl){ setSyncStatus('ยังไม่ได้ใส่ Apps Script URL', 'text-red-400'); return {ok:false,error:'NO_URL'}; }
-      if(!looksLikeAppsScript(scriptUrl)){ setSyncStatus('URL ต้องเป็น Web App (/exec หรือ /dev)', 'text-red-400'); return {ok:false,error:'BAD_URL'}; }
-
-      try{ await ping(scriptUrl); }catch(err){ setSyncStatus('เชื่อมต่อไม่ได้: '+errorToString(err),'text-red-400'); return {ok:false,error:'PING_FAIL'}; }
-
-      setSyncStatus(`กำลังส่งข้อมูล (${reason})...`, 'text-yellow-400');
-      try{
-        const payload={ products, buyTransactions, sellTransactions, stores, customers, categories, timestamp:new Date().toISOString() };
-        const data=await httpJson(scriptUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),timeoutMs:15000},2);
-        if(data&&data.ok){ setSyncStatus(`ส่งข้อมูลสำเร็จ (${reason})`,'text-green-400'); return {ok:true}; }
-        setSyncStatus(`สคริปต์ตอบผิดพลาด: ${data?.error||'unknown'}`,'text-red-400'); return {ok:false};
-      }catch(err){
-        setSyncStatus('ส่งข้อมูลไม่สำเร็จ: '+errorToString(err),'text-red-400'); return {ok:false};
-      }
-    }
-
-    /* ========= Load / Setup / PDF ========= */
-    document.getElementById('setupSheetsBtn').addEventListener('click', async ()=>{
-      try{
-        const u=getScriptUrl(); if(!u) return alert('ใส่ Apps Script URL ก่อน');
-        rememberScriptUrl();
-        setSyncStatus('กำลังตั้งค่าเริ่มต้น (setup)...','text-yellow-400');
-        const r=await httpJson(`${u}?action=setup`,{method:'GET',timeoutMs:12000},1);
-        if(r?.ok){ setSyncStatus('ตั้งค่าเสร็จแล้ว!','text-green-400'); }
-        else setSyncStatus('ตั้งค่าไม่สำเร็จ','text-red-400');
-      }catch(e){ setSyncStatus('ตั้งค่าไม่สำเร็จ: '+errorToString(e),'text-red-400'); }
-    });
-
-    document.getElementById('loadFromSheetsBtn').addEventListener('click', async ()=>{
-      try{
-        const u=getScriptUrl(); if(!u) return alert('ใส่ Apps Script URL ก่อน');
-        rememberScriptUrl();
-        setSyncStatus('กำลังโหลดข้อมูล...','text-yellow-400');
-        const data=await httpJson(`${u}?action=load`,{method:'GET',timeoutMs:15000},2);
-        if(data.products) products=data.products;
-        if(data.buyTransactions) buyTransactions=data.buyTransactions;
-        if(data.sellTransactions) sellTransactions=data.sellTransactions;
-        if(data.stores) stores=data.stores;
-        if(data.customers) customers=data.customers;
-        if(data.categories) categories=data.categories;
-        saveToStorage(); init(); setSyncStatus('โหลดข้อมูลสำเร็จ!','text-green-400');
-      }catch(e){ setSyncStatus('โหลดข้อมูลไม่สำเร็จ: '+errorToString(e),'text-red-400'); }
-    });
-
-    document.getElementById('syncToSheetsBtn').addEventListener('click', ()=>{ rememberScriptUrl(); syncNow('กดปุ่มส่งข้อมูล'); });
-
-    document.getElementById('generatePDFBtn').addEventListener('click', async function(){
-      const month=document.getElementById('reportMonth').value;
-      if(!month) return alert('กรุณาเลือกเดือน');
-      const btn=this; btn.disabled=true; const old=btn.textContent; btn.textContent='กำลังสร้าง...';
-      try{
-        const u=getScriptUrl();
-        if(u && looksLikeAppsScript(u) && !isFileScheme()){
-          try{
-            const r=await httpJson(`${u}?action=pdf&month=${encodeURIComponent(month)}`,{method:'GET',timeoutMs:25000},1);
-            if(r?.ok && (r.downloadUrl||r.url)){ window.open(r.downloadUrl||r.url,'_blank'); btn.textContent=old; btn.disabled=false; return; }
-          }catch(e){ /* fallback */ }
-        }
-        // fallback: client-side PDF (3 ส่วนในหน้าเดียวหรือหลายหน้าอัตโนมัติ)
-        generateMonthlyPDF(month);
-      } finally { btn.textContent=old; btn.disabled=false; }
-    });
-
-    /* ========= Validation + Submit ========= */
-    function validateLineItems(containerSelector, mode){
-      const rows=[...document.querySelectorAll(containerSelector+' .'+(mode==='buy'?'buy-item':'sell-item'))];
-      let ok=true, messages=[];
-      rows.forEach(row=>{
-        const sel=row.querySelector('.product-select');
-        const qty=row.querySelector('.quantity-input');
-        const price=row.querySelector('.price-input');
-        [sel,qty,price].forEach(el=>el&&el.classList.remove('input-error'));
-        const pid=Number(sel?.value||NaN), q=Number(qty?.value||NaN), p=Number(price?.value||NaN);
-        if(!pid || !products.find(x=>x.id===pid)){ ok=false; sel?.classList.add('input-error'); }
-        if(!(q>0)){ ok=false; qty?.classList.add('input-error'); }
-        if(!(p>=0)){ ok=false; price?.classList.add('input-error'); }
-      });
-      if(!ok) messages.push('กรุณาเลือกสินค้า ใส่จำนวน (>0) และราคา ให้ครบทุกบรรทัด');
-      if(mode==='buy'){
-        const store=document.getElementById('buyStore'); if(!store.value){ ok=false; store.classList.add('input-error'); messages.push('กรุณาเลือกร้านที่ซื้อ'); }
-        else store.classList.remove('input-error');
-      }else{
-        const cust=document.getElementById('sellCustomer'); if(!cust.value){ ok=false; cust.classList.add('input-error'); messages.push('กรุณาเลือกลูกค้า'); }
-        else cust.classList.remove('input-error');
-      }
-      return { ok, message: messages.join('\n') };
-    }
-
-    document.getElementById('buyForm').addEventListener('submit', async function(e){
-      e.preventDefault();
-      const v=validateLineItems('#buyItems','buy'); if(!v.ok) return alert(v.message);
-      const date=document.getElementById('buyDate').value; const store=document.getElementById('buyStore').value;
-      const items=[];
-      document.querySelectorAll('.buy-item').forEach(row=>{
-        const pid=Number(row.querySelector('.product-select').value);
-        const q=Number(row.querySelector('.quantity-input').value);
-        const p=Number(row.querySelector('.price-input').value);
-        if(pid && q>0 && p>=0){
-          const prod=products.find(x=>x.id===pid);
-          items.push({productId:pid,productName:prod.name,quantity:q,price:p,total:q*p,hasVat:prod.hasVat});
-        }
-      });
-      buyTransactions.push({id:Date.now(),date,store,items,total:items.reduce((s,i)=>s+i.total,0)});
-      saveToStorage(); await syncNow('บันทึกซื้อ'); alert('บันทึกการซื้อเรียบร้อย!');
-      // reset rows
-      this.reset(); document.getElementById('buyDate').value=new Date().toISOString().split('T')[0];
-      const box=document.getElementById('buyItems'); box.innerHTML='';
-      addBuyItem(); updateProductDropdowns();
-    });
-
-    document.getElementById('sellForm').addEventListener('submit', async function(e){
-      e.preventDefault(); ensureDefaultCustomer(); updateCustomerDropdowns();
-      const v=validateLineItems('#sellItems','sell'); if(!v.ok) return alert(v.message);
-      const date=document.getElementById('sellDate').value; const customer=document.getElementById('sellCustomer').value;
-      const items=[];
-      document.querySelectorAll('.sell-item').forEach(row=>{
-        const pid=Number(row.querySelector('.product-select').value);
-        const q=Number(row.querySelector('.quantity-input').value);
-        const p=Number(row.querySelector('.price-input').value);
-        if(pid && q>0 && p>=0){
-          const prod=products.find(x=>x.id===pid);
-          items.push({productId:pid,productName:prod.name,quantity:q,price:p,total:q*p,hasVat:prod.hasVat});
-        }
-      });
-      sellTransactions.push({id:Date.now(),date,customer,items,total:items.reduce((s,i)=>s+i.total,0)});
-      saveToStorage(); await syncNow('บันทึกขาย'); alert('บันทึกการขายเรียบร้อย!');
-      this.reset(); document.getElementById('sellDate').value=new Date().toISOString().split('T')[0];
-      const box=document.getElementById('sellItems'); box.innerHTML=''; addSellItem(); updateProductDropdowns(); updateCustomerDropdowns();
-    });
-
-    /* ========= Summary & Preview ========= */
-    function updateSummary(){
-      const all=[]; buyTransactions.forEach(t=>t.items.forEach(i=>all.push(i))); sellTransactions.forEach(t=>t.items.forEach(i=>all.push(i)));
-      const vat=all.filter(i=>i.hasVat), novat=all.filter(i=>!i.hasVat);
-      const vsub=vat.reduce((s,i)=>s+i.total,0), v7=vsub*0.07, vtot=vsub+v7;
-      const ntot=novat.reduce((s,i)=>s+i.total,0);
-      document.getElementById('vatItemsCount').textContent=vat.length;
-      document.getElementById('vatSubtotal').textContent=formatCurrency(vsub);
-      document.getElementById('vatAmount').textContent=formatCurrency(v7);
-      document.getElementById('vatTotal').textContent=formatCurrency(vtot);
-      document.getElementById('noVatItemsCount').textContent=novat.length;
-      document.getElementById('noVatTotal').textContent=formatCurrency(ntot);
-      const tbodyV=document.getElementById('vatItemsList'); const tbodyN=document.getElementById('noVatItemsList');
-      tbodyV.innerHTML = vat.length? vat.map(i=>`<tr class="border-b border-gray-600"><td class="py-2 px-2">${i.productName}</td><td class="py-2 px-2">${i.quantity}</td><td class="py-2 px-2">${formatCurrency(i.price)}</td><td class="py-2 px-2 font-semibold">${formatCurrency(i.total)}</td></tr>`).join('') : '<tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr>';
-      tbodyN.innerHTML = novat.length? novat.map(i=>`<tr class="border-b border-gray-600"><td class="py-2 px-2">${i.productName}</td><td class="py-2 px-2">${i.quantity}</td><td class="py-2 px-2">${formatCurrency(i.price)}</td><td class="py-2 px-2 font-semibold">${formatCurrency(i.total)}</td></tr>`).join('') : '<tr><td colspan="4" class="text-center py-4 text-gray-400">ไม่มีรายการ</td></tr>';
-    }
-    function getMonthlyData(month){
-      const [Y,M]=month.split('-'); const filt=t=>{const d=new Date(t.date); return d.getFullYear()==Y && (d.getMonth()+1)==Number(M);};
-      const monthlyBuy=buyTransactions.filter(filt); const monthlySell=sellTransactions.filter(filt);
-      const all=[]; monthlyBuy.forEach(t=>all.push(...t.items)); monthlySell.forEach(t=>all.push(...t.items));
-      const vat=all.filter(i=>i.hasVat);
-      const totalBuy=monthlyBuy.reduce((s,t)=>s+t.total,0), totalSell=monthlySell.reduce((s,t)=>s+t.total,0), totalVat=vat.reduce((s,i)=>s+i.total*0.07,0);
-      return {buyTransactions:monthlyBuy, sellTransactions:monthlySell, vatItems:vat, totalBuy, totalSell, totalVat, profit: totalSell-totalBuy};
-    }
-    function updateMonthlyPreview(){
-      const now=new Date(); const m=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-      const md=getMonthlyData(m);
-      document.getElementById('totalBuyAmount').textContent=formatCurrency(md.totalBuy);
-      document.getElementById('totalSellAmount').textContent=formatCurrency(md.totalSell);
-      document.getElementById('totalVatAmount').textContent=formatCurrency(md.totalVat);
-      document.getElementById('totalProfit').textContent=formatCurrency(md.profit);
-    }
-
-    /* ========= Client PDF Fallback ========= */
-    function generateMonthlyPDF(month){
-      const { jsPDF }=window.jspdf; const doc=new jsPDF(); doc.setFont('helvetica');
-      doc.setFontSize(20); doc.text('รายงานประจำเดือน',105,18,{align:'center'});
-      doc.setFontSize(12); doc.text(`เดือน: ${month}`,105,26,{align:'center'});
-      const md=getMonthlyData(month); let y=34;
-      // Page 1: ซื้อ
-      doc.setFontSize(14); doc.text('หน้า 1: รายการสินค้าที่ซื้อ',14,y); y+=6;
-      doc.autoTable({ startY:y, head:[['วันที่','ร้าน','รายการ','ยอดรวม']], body: md.buyTransactions.map(t=>[t.date,t.store,t.items.map(i=>`${i.productName} (${i.quantity})`).join(', '),formatCurrency(t.total)]) });
-      // Page 2: ขาย
-      doc.addPage(); y=20; doc.setFontSize(14); doc.text('หน้า 2: รายการสินค้าที่ขาย',14,y); y+=6;
-      doc.autoTable({ startY:y, head:[['วันที่','ลูกค้า','รายการ','ยอดรวม']], body: md.sellTransactions.map(t=>[t.date,t.customer,t.items.map(i=>`${i.productName} (${i.quantity})`).join(', '),formatCurrency(t.total)]) });
-      // Page 3: สรุป
-      doc.addPage(); y=20; doc.setFontSize(14); doc.text('หน้า 3: สรุปยอด',14,y); y+=8;
-      doc.setFontSize(12);
-      doc.text(`ยอดซื้อรวม: ${formatCurrency(md.totalBuy)}`,14,y); y+=6;
-      doc.text(`ยอดขายรวม: ${formatCurrency(md.totalSell)}`,14,y); y+=6;
-      doc.text(`VAT รวม: ${formatCurrency(md.totalVat)}`,14,y); y+=6;
-      doc.text(`กำไรรวม: ${formatCurrency(md.profit)}`,14,y);
-      doc.save(`รายงาน_${month.replace('-','_')}.pdf`);
-    }
-
-    /* ========= Add/Edit product & misc ========= */
-    document.getElementById('addStoreBtn').addEventListener('click',()=>{ const n=prompt('ชื่อร้าน:'); if(n && !stores.includes(n)){ stores.push(n); saveToStorage(); updateStoreDropdowns(); }});
-    document.getElementById('addCustomerBtn').addEventListener('click',()=>{ const n=prompt('ชื่อลูกค้า:'); if(n && !customers.includes(n)){ customers.push(n); saveToStorage(); updateCustomerDropdowns(); }});
-    document.getElementById('addCategoryBtn').addEventListener('click',()=>{ const n=prompt('ชื่อหมวดหมู่:'); if(n && !categories.includes(n)){ categories.push(n); saveToStorage(); updateCategoryDropdowns(); }});
-
-    document.getElementById('addProductBtn').addEventListener('click',()=>document.getElementById('productForm').classList.remove('hidden'));
-    document.getElementById('cancelProductBtn').addEventListener('click',()=>{ document.getElementById('productForm').classList.add('hidden'); document.getElementById('addProductForm').reset(); });
-    document.getElementById('addProductForm').addEventListener('submit',e=>{
-      e.preventDefault();
-      const product={ id:Date.now(), name:productName.value, category:productCategory.value, buyPrice:parseFloat(productBuyPrice.value), sellPrice:parseFloat(productSellPrice.value), hasVat:productHasVat.checked };
-      products.push(product); saveToStorage(); updateProductsTable(); updateProductDropdowns();
-      document.getElementById('productForm').classList.add('hidden'); e.target.reset(); syncNow('เพิ่มสินค้า');
-    });
-
-    /* ========= Init ========= */
-    function init(){
-      document.getElementById('buyDate').value=new Date().toISOString().split('T')[0];
-      document.getElementById('sellDate').value=new Date().toISOString().split('T')[0];
-      const input=document.getElementById('scriptUrl'); const saved=localStorage.getItem('scriptUrl'); if(saved) input.value=saved;
-      updateStoreDropdowns(); updateCustomerDropdowns(); updateCategoryDropdowns(); updateProductDropdowns(); updateProductsTable(); updateSummary();
-    }
-    init();
-  </script>
+/* ===== Normalize old data & init ===== */
+function normalizeProducts(){ let changed=false; products=(products||[]).map(p=>{ if(!p.id){ p.id=uid('p_'); changed=true; } p.id=sid(p.id); return p; }); if(changed) saveToStorage(); }
+function init(){
+  buyDate.value=new Date().toISOString().split('T')[0]; sellDate.value=new Date().toISOString().split('T')[0];
+  const saved=localStorage.getItem('scriptUrl'); if(saved) document.getElementById('scriptUrl').value=saved;
+  normalizeProducts();
+  updateStoreDropdowns(); updateCustomerDropdowns(); updateCategoryDropdowns(); updateProductDropdowns(); updateProductsTable(); updateSummary();
+}
+init();
+</script>
 </body>
 </html>
