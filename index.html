@@ -2,870 +2,645 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
+  <title>Plug2Plug POS</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Plug2Plug POS — Single File</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   <style>
-    body{background:#0b1220;color:#fff}
-    .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px}
-    .btn{border-radius:10px;padding:.6rem 1rem}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .field{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:.5rem .75rem;color:#e5e7eb}
-    .table-wrap{overflow:auto;max-height:360px}
-    .chip{border:1px solid #475569;border-radius:999px;padding:.2rem .6rem;font-size:.75rem}
-    .tab-btn.active{border-bottom:2px solid #60a5fa;color:#60a5fa}
-    .ghost{opacity:.4}
-    .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+    body{font-family:'Sarabun',sans-serif;background:#0b1020;color:#e6e6e6}
+    .dark-glass{background:rgba(0,0,0,.35);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:12px}
+    .neon{box-shadow:0 0 16px rgba(59,130,246,.35)}
+    .btn{border-radius:10px}
+    .grid-head th{font-weight:600}
+    .chip{padding:.15rem .5rem;border-radius:999px;border:1px solid rgba(255,255,255,.2)}
+    .hidden{display:none}
   </style>
 </head>
 <body class="min-h-screen">
-<div class="max-w-7xl mx-auto p-4 md:p-8">
+  <div class="container mx-auto max-w-7xl p-4 md:p-8">
+    <header class="text-center mb-6">
+      <h1 class="text-3xl md:text-4xl font-bold">🏪 Plug2Plug POS</h1>
+      <p class="text-gray-300">บันทึกซื้อ-ขาย / สต็อก / รายงาน PDF / นำเข้า-ส่งออก</p>
+    </header>
 
-  <!-- Header / Controls -->
-  <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
-    <div>
-      <h1 class="text-3xl font-bold">🏪 Plug2Plug POS</h1>
-      <p class="text-slate-300">บันทึกซื้อ/ขาย • สรุปรายเดือน • ส่งออก PDF • Sync Google Sheets</p>
+    <!-- Tabs -->
+    <div class="dark-glass p-1 mb-5 flex gap-2">
+      <button class="tab px-4 py-2 bg-blue-600 text-white btn" data-tab="buy">🛒 ซื้อ</button>
+      <button class="tab px-4 py-2 hover:bg-blue-600/20 btn" data-tab="sell">💰 ขาย</button>
+      <button class="tab px-4 py-2 hover:bg-blue-600/20 btn" data-tab="products">📦 สินค้า</button>
+      <button class="tab px-4 py-2 hover:bg-blue-600/20 btn" data-tab="summary">📊 สรุป</button>
+      <button class="tab px-4 py-2 hover:bg-blue-600/20 btn" data-tab="reports">📄 รายงาน/นำเข้า-ส่งออก</button>
+      <div class="ml-auto flex items-center gap-2 text-sm">
+        <input id="scriptUrl" placeholder="https://script.google.com/macros/s/xxxxxxxx/exec" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded w-72" />
+        <button id="btnSetup" class="px-3 py-2 bg-amber-600 text-white rounded btn">⚙️ Setup</button>
+        <button id="loadFromSheetsBtn" class="px-3 py-2 bg-sky-600 text-white rounded btn">🔄 โหลดจากชีต</button>
+      </div>
     </div>
-    <div class="flex gap-2 items-center">
-      <input id="scriptUrl" type="url" placeholder="วาง Google Apps Script Web App URL (/exec)" class="field w-80" />
-      <button id="setupBtn" class="btn bg-blue-600 hover:bg-blue-500">⚙️ ตั้งค่า</button>
-      <button id="loadBtn" class="btn bg-emerald-600 hover:bg-emerald-500">📥 โหลด</button>
-      <button id="syncBtn" class="btn bg-purple-600 hover:bg-purple-500">📊 Sync</button>
-    </div>
-  </div>
-  <div id="syncStatus" class="text-sm text-sky-300 mb-6">พร้อม</div>
 
-  <!-- Tabs -->
-  <div class="flex gap-4 border-b border-slate-700 mb-4">
-    <button class="tab-btn pb-2 active" data-tab="buy">🛒 ซื้อ</button>
-    <button class="tab-btn pb-2" data-tab="sell">💰 ขาย</button>
-    <button class="tab-btn pb-2" data-tab="products">📦 สินค้า</button>
-    <button class="tab-btn pb-2" data-tab="summary">📊 สรุป</button>
-    <button class="tab-btn pb-2" data-tab="reports">📄 รายงาน</button>
-  </div>
-
-  <!-- BUY -->
-  <div id="buy" class="tabpane">
-    <div class="card p-4 mb-4">
-      <h2 class="text-xl font-semibold mb-3">🛒 บันทึกการซื้อ</h2>
-      <div class="grid md:grid-cols-3 gap-3 mb-3">
-        <div>
-          <label class="text-sm text-slate-300">วันที่</label>
-          <input id="buyDate" type="date" class="field w-full"/>
-        </div>
-        <div>
-          <label class="text-sm text-slate-300">ร้านที่ซื้อ</label>
-          <div class="flex gap-2">
-            <select id="buyStore" class="field w-full"></select>
-            <button id="addStoreBtn" class="btn bg-emerald-700">+ ร้าน</button>
+    <!-- BUY -->
+    <section id="buy" class="dark-glass p-4 md:p-6">
+      <h2 class="text-xl font-semibold mb-4">🛒 บันทึกการซื้อ</h2>
+      <form id="buyForm" class="space-y-4">
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-gray-300">วันที่</label>
+            <input type="date" id="buyDate" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded" required />
+          </div>
+          <div>
+            <label class="text-sm text-gray-300">ร้านที่ซื้อ</label>
+            <div class="flex gap-2">
+              <select id="buyStore" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded">
+                <option value="">เลือกร้าน</option>
+              </select>
+              <button type="button" id="addStoreBtn" class="px-3 py-2 bg-emerald-600 text-white rounded btn">เพิ่มร้าน</button>
+            </div>
           </div>
         </div>
-        <div class="flex items-end">
-          <button id="addBuyItem" class="btn bg-sky-600">+ เพิ่มรายการ</button>
+
+        <div class="border-t border-gray-700 pt-4">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="font-semibold">รายการ</h3>
+            <button type="button" id="addBuyItem" class="px-3 py-2 bg-blue-600 text-white rounded btn">+ เพิ่มรายการ</button>
+          </div>
+          <div id="buyItems"></div>
         </div>
-      </div>
 
-      <datalist id="productDatalist"></datalist>
-
-      <div id="buyItems" class="space-y-2"></div>
-
-      <div class="flex justify-end gap-2 mt-4">
-        <button id="buyResetBtn" class="btn bg-slate-600">เคลียร์</button>
-        <button id="buySubmitBtn" class="btn bg-white text-black">บันทึกการซื้อ</button>
-      </div>
-      <div id="buyHint" class="text-xs text-slate-400 mt-2">
-        พิมพ์ชื่อสินค้าในช่อง “สินค้า” เพื่อค้นหาและเลือก — ระบบจะ Autofill ราคา “ซื้อ”
-      </div>
-    </div>
-  </div>
-
-  <!-- SELL -->
-  <div id="sell" class="tabpane hidden">
-    <div class="card p-4 mb-4">
-      <h2 class="text-xl font-semibold mb-3">💰 บันทึกการขาย</h2>
-      <div class="grid md:grid-cols-3 gap-3 mb-3">
-        <div>
-          <label class="text-sm text-slate-300">วันที่</label>
-          <input id="sellDate" type="date" class="field w-full"/>
+        <div class="text-right">
+          <button type="submit" class="px-6 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded btn">บันทึกการซื้อ</button>
         </div>
-        <div>
-          <label class="text-sm text-slate-300">ลูกค้า</label>
-          <div class="flex gap-2">
-            <select id="sellCustomer" class="field w-full"></select>
-            <button id="addCustomerBtn" class="btn bg-emerald-700">+ ลูกค้า</button>
+      </form>
+    </section>
+
+    <!-- SELL -->
+    <section id="sell" class="dark-glass p-4 md:p-6 hidden">
+      <h2 class="text-xl font-semibold mb-4">💰 บันทึกการขาย</h2>
+      <form id="sellForm" class="space-y-4">
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-gray-300">วันที่</label>
+            <input type="date" id="sellDate" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded" required />
+          </div>
+          <div>
+            <label class="text-sm text-gray-300">ลูกค้า</label>
+            <div class="flex gap-2">
+              <select id="sellCustomer" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded">
+                <option value="">เลือกลูกค้า</option>
+                <option value="ลูกค้าทั่วไป">ลูกค้าทั่วไป</option>
+              </select>
+              <button type="button" id="addCustomerBtn" class="px-3 py-2 bg-emerald-600 text-white rounded btn">เพิ่มลูกค้า</button>
+            </div>
           </div>
         </div>
-        <div class="flex items-end">
-          <button id="addSellItem" class="btn bg-sky-600">+ เพิ่มรายการ</button>
+
+        <div class="border-t border-gray-700 pt-4">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="font-semibold">รายการ</h3>
+            <button type="button" id="addSellItem" class="px-3 py-2 bg-blue-600 text-white rounded btn">+ เพิ่มรายการ</button>
+          </div>
+          <div id="sellItems"></div>
         </div>
-      </div>
 
-      <div id="sellItems" class="space-y-2"></div>
+        <div class="text-right">
+          <button type="submit" class="px-6 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded btn">บันทึกการขาย</button>
+        </div>
+      </form>
+    </section>
 
-      <div class="flex justify-end gap-2 mt-4">
-        <button id="sellResetBtn" class="btn bg-slate-600">เคลียร์</button>
-        <button id="sellSubmitBtn" class="btn bg-white text-black">บันทึกการขาย</button>
-      </div>
-      <div class="text-xs text-slate-400 mt-2">
-        พิมพ์ชื่อสินค้าในช่อง “สินค้า” เพื่อค้นหาและเลือก — ระบบจะ Autofill ราคา “ขาย”
-      </div>
-    </div>
-  </div>
-
-  <!-- PRODUCTS -->
-  <div id="products" class="tabpane hidden">
-    <div class="card p-4 mb-4">
-      <div class="flex items-center justify-between mb-3">
+    <!-- PRODUCTS -->
+    <section id="products" class="dark-glass p-4 md:p-6 hidden">
+      <div class="flex justify-between items-center mb-3">
         <h2 class="text-xl font-semibold">📦 รายการสินค้า</h2>
-        <button id="addProductBtn" class="btn bg-sky-600">+ เพิ่มสินค้า</button>
+        <button id="addProductBtn" class="px-3 py-2 bg-blue-600 text-white rounded btn">+ เพิ่มสินค้า</button>
       </div>
 
-      <div id="productForm" class="hidden card p-4 mb-3">
-        <h3 class="font-semibold mb-2">เพิ่ม/แก้ไขสินค้า</h3>
-        <div class="grid md:grid-cols-5 gap-3">
-          <input id="productName" class="field" placeholder="ชื่อสินค้า"/>
-          <select id="productCategory" class="field">
-            <option value="">เลือกหมวดหมู่</option>
-          </select>
-          <input id="productBuyPrice" class="field" placeholder="ราคาซื้อ" type="number" step="0.01" min="0"/>
-          <input id="productSellPrice" class="field" placeholder="ราคาขาย" type="number" step="0.01" min="0"/>
-          <label class="flex items-center gap-2"><input id="productHasVat" type="checkbox"/> <span>VAT 7%</span></label>
-        </div>
-        <div class="flex gap-2 mt-3">
-          <button id="saveProductBtn" class="btn bg-emerald-600">บันทึกสินค้า</button>
-          <button id="cancelProductBtn" class="btn bg-slate-600">ยกเลิก</button>
-          <button id="addCategoryBtn" class="btn bg-purple-700">+ หมวดหมู่</button>
-        </div>
+      <div id="productForm" class="hidden dark-glass p-4 mb-4">
+        <h3 class="font-semibold mb-2">เพิ่มสินค้าใหม่</h3>
+        <form id="addProductForm" class="grid md:grid-cols-3 gap-3">
+          <input id="productName" placeholder="ชื่อสินค้า" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded" required />
+          <div class="flex gap-2">
+            <select id="productCategory" class="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded" required>
+              <option value="">เลือกหมวดหมู่</option>
+            </select>
+            <button type="button" id="addCategoryBtn" class="px-3 py-2 bg-purple-600 text-white rounded btn">เพิ่มหมวด</button>
+          </div>
+          <input type="number" id="productBuyPrice" placeholder="ราคาซื้อ" step="0.01" min="0" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded" required />
+          <input type="number" id="productSellPrice" placeholder="ราคาขาย" step="0.01" min="0" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded" required />
+          <label class="flex items-center gap-2">
+            <input type="checkbox" id="productHasVat" />
+            <span>มี VAT 7%</span>
+          </label>
+          <div class="flex gap-2">
+            <button class="px-3 py-2 bg-emerald-600 text-white rounded btn" type="submit">บันทึก</button>
+            <button class="px-3 py-2 bg-neutral-700 text-white rounded btn" type="button" id="cancelProductBtn">ยกเลิก</button>
+          </div>
+        </form>
       </div>
 
-      <div class="table-wrap">
+      <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead>
-            <tr class="text-left text-slate-300">
-              <th class="p-2">ชื่อ</th><th class="p-2">หมวด</th><th class="p-2">ซื้อ</th><th class="p-2">ขาย</th><th class="p-2">VAT</th><th class="p-2">จัดการ</th>
+          <thead class="grid-head">
+            <tr class="border-b border-gray-700">
+              <th class="text-left py-2 px-2">ชื่อสินค้า</th>
+              <th class="text-left py-2 px-2">หมวดหมู่</th>
+              <th class="text-left py-2 px-2">ราคาซื้อ</th>
+              <th class="text-left py-2 px-2">ราคาขาย</th>
+              <th class="text-left py-2 px-2">VAT</th>
+              <th class="text-left py-2 px-2">ราคารวม VAT</th>
+              <th class="text-left py-2 px-2">จัดการ</th>
             </tr>
           </thead>
-          <tbody id="productsTable"></tbody>
+          <tbody id="productsTable">
+            <tr><td colspan="7" class="text-center py-6 text-gray-400">ยังไม่มีสินค้า</td></tr>
+          </tbody>
         </table>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- SUMMARY -->
-  <div id="summary" class="tabpane hidden">
-    <div class="card p-4 mb-4">
-      <h2 class="text-xl font-semibold mb-3">📊 สรุปตามเดือน</h2>
-      <div class="grid md:grid-cols-4 gap-3 mb-4">
+    <!-- SUMMARY -->
+    <section id="summary" class="dark-glass p-4 md:p-6 hidden">
+      <div class="flex gap-3 items-end mb-4">
         <div>
-          <label class="text-sm text-slate-300">เดือน</label>
-          <input id="sumMonth" type="month" class="field w-full"/>
+          <label class="text-sm text-gray-300">เดือน</label>
+          <input type="month" id="sumMonth" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded">
         </div>
+        <button id="refreshSummary" class="px-3 py-2 bg-sky-600 text-white rounded btn">รีเฟรชสรุป</button>
+      </div>
+      <div id="summaryCards" class="grid md:grid-cols-4 gap-3 mb-4">
+        <div class="dark-glass p-3 text-center"><div class="text-xs text-gray-400">ยอดซื้อรวม</div><div id="sumTotalBuy" class="text-lg font-semibold">฿0</div></div>
+        <div class="dark-glass p-3 text-center"><div class="text-xs text-gray-400">ยอดขายรวม</div><div id="sumTotalSell" class="text-lg font-semibold">฿0</div></div>
+        <div class="dark-glass p-3 text-center"><div class="text-xs text-gray-400">VAT รวม</div><div id="sumTotalVat" class="text-lg font-semibold">฿0</div></div>
+        <div class="dark-glass p-3 text-center"><div class="text-xs text-gray-400">กำไร</div><div id="sumProfit" class="text-lg font-semibold">฿0</div></div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="dark-glass p-3">
+          <h3 class="font-semibold mb-2">✅ รายการมี VAT</h3>
+          <div class="text-sm text-gray-300 mb-2">
+            จำนวน: <span id="vatItemsCount">0</span> | ยอดรวม (ไม่รวม VAT): <span id="vatSubtotal">฿0</span> |
+            VAT 7%: <span id="vatAmount">฿0</span> | รวม VAT: <span id="vatTotal">฿0</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b border-gray-700"><th class="py-1 text-left">สินค้า</th><th class="py-1 text-left">จำนวน</th><th class="py-1 text-left">ราคา</th><th class="py-1 text-left">รวม</th></tr></thead>
+              <tbody id="vatItemsList"><tr><td colspan="4" class="text-center py-3 text-gray-400">ไม่มีรายการ</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="dark-glass p-3">
+          <h3 class="font-semibold mb-2">❌ รายการไม่มี VAT</h3>
+          <div class="text-sm text-gray-300 mb-2">
+            จำนวน: <span id="noVatItemsCount">0</span> | ยอดรวม: <span id="noVatTotal">฿0</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b border-gray-700"><th class="py-1 text-left">สินค้า</th><th class="py-1 text-left">จำนวน</th><th class="py-1 text-left">ราคา</th><th class="py-1 text-left">รวม</th></tr></thead>
+              <tbody id="noVatItemsList"><tr><td colspan="4" class="text-center py-3 text-gray-400">ไม่มีรายการ</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="reports" class="dark-glass p-4 md:p-6 hidden">
+      <h2 class="text-xl font-semibold mb-3">📄 รายงาน / เชื่อมต่อชีต</h2>
+      <div class="grid md:grid-cols-2 gap-3 mb-4">
         <div>
-          <label class="text-sm text-slate-300">โหมด</label>
-          <select id="sumMode" class="field w-full">
-            <option value="buy">ซื้อ</option>
-            <option value="sell">ขาย</option>
+          <label class="text-sm text-gray-300">เดือน</label>
+          <input type="month" id="reportMonth" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded" />
+        </div>
+        <div class="flex items-end gap-2">
+          <button id="generatePDFBtn" class="px-4 py-2 bg-rose-600 text-white rounded btn">📄 PDF 3 หน้า</button>
+        </div>
+      </div>
+
+      <div class="dark-glass p-3 mb-4">
+        <h3 class="font-semibold mb-2">📑 PDF แบบเลือก (ร้าน/ลูกค้า, หมวดหมู่, เฉพาะ VAT, ทั้งหมด)</h3>
+        <div class="flex flex-wrap gap-2 items-center">
+          <select id="pdfMode" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white">
+            <option value="buy">รายงานซื้อ</option>
+            <option value="sell">รายงานขาย</option>
           </select>
-        </div>
-        <div>
-          <label class="text-sm text-slate-300">ฟิลเตอร์ PDF</label>
-          <select id="pdfFilter" class="field w-full">
-            <option value="all">ทั้งหมด</option>
+          <select id="pdfFilter" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white">
+            <option value="all">ทั้งหมด (ตามสินค้า)</option>
             <option value="actor">ตามร้าน/ลูกค้า</option>
             <option value="category">ตามหมวดหมู่</option>
-            <option value="vat">เฉพาะรายการ VAT</option>
+            <option value="vat">เฉพาะมี VAT</option>
           </select>
-        </div>
-        <div id="actorSelectBox" class="hidden">
-          <label class="text-sm text-slate-300">เลือกร้าน/ลูกค้า</label>
-          <select id="actorSelect" class="field w-full"><option value="__ALL__">ทั้งหมด</option></select>
+          <input id="pdfActor" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" placeholder="ระบุร้าน/ลูกค้า (ถ้าเลือก actor)" />
+          <button id="exportCustomPdf" class="px-4 py-2 bg-pink-600 text-white rounded btn">📄 ส่งออก PDF แบบเลือก</button>
         </div>
       </div>
 
-      <div class="grid md:grid-cols-4 gap-3 mb-4">
-        <div class="card p-3 text-center">
-          <div class="text-sky-400 text-2xl" id="sumTotalQty">0</div><div class="text-sm text-slate-300">จำนวนรวม</div>
-        </div>
-        <div class="card p-3 text-center">
-          <div class="text-emerald-400 text-2xl" id="sumTotalAmt">฿0</div><div class="text-sm text-slate-300">ยอดรวม</div>
-        </div>
-        <div class="card p-3 text-center">
-          <div class="text-orange-400 text-2xl" id="sumVatAmt">฿0</div><div class="text-sm text-slate-300">VAT รวม</div>
-        </div>
-        <div class="card p-3 text-center">
-          <div class="text-fuchsia-400 text-2xl" id="sumProfit">฿0</div><div class="text-sm text-slate-300">กำไร (ขาย-ซื้อ)</div>
-        </div>
-      </div>
-
-      <div class="grid md:grid-cols-3 gap-3">
-        <div class="card p-3">
-          <h3 class="font-semibold mb-2">ตามสินค้า</h3>
-          <div class="table-wrap"><table class="w-full text-sm"><thead><tr><th class="p-1">สินค้า</th><th class="p-1">หมวด</th><th class="p-1">จำนวน</th><th class="p-1">ยอด</th></tr></thead><tbody id="sumByProduct"></tbody></table></div>
-        </div>
-        <div class="card p-3">
-          <h3 class="font-semibold mb-2">ตามหมวดหมู่</h3>
-          <div class="table-wrap"><table class="w-full text-sm"><thead><tr><th class="p-1">หมวด</th><th class="p-1">จำนวน</th><th class="p-1">ยอด</th></tr></thead><tbody id="sumByCategory"></tbody></table></div>
-        </div>
-        <div class="card p-3">
-          <h3 class="font-semibold mb-2"><span id="actorTitle">ตามร้าน</span></h3>
-          <div class="table-wrap"><table class="w-full text-sm"><thead><tr><th class="p-1"><span id="actorCol">ร้าน</span></th><th class="p-1">ยอดรวม</th></tr></thead><tbody id="sumByActor"></tbody></table></div>
-        </div>
-      </div>
-
-      <div class="flex justify-between items-center mt-4">
-        <div class="text-xs text-slate-400">ประวัติรายการเดือนนี้</div>
-        <div class="flex gap-2">
-          <button id="exportCustomPdf" class="btn bg-red-600">📄 ส่งออก PDF (ตามตัวเลือก)</button>
-          <button id="exportServerPdf" class="btn bg-orange-600">☁️ PDF 3 หน้า (จาก Apps Script)</button>
-        </div>
-      </div>
-
-      <div class="grid md:grid-cols-2 gap-3 mt-3">
-        <div class="card p-3">
-          <h4 class="font-semibold mb-2">รายการซื้อ</h4>
-          <div class="table-wrap">
-            <table class="w-full text-sm">
-              <thead><tr><th class="p-2">วันที่</th><th class="p-2">ร้าน</th><th class="p-2">ยอด</th><th class="p-2">จัดการ</th></tr></thead>
-              <tbody id="buyHistory"></tbody>
-            </table>
+      <div class="dark-glass p-3">
+        <h3 class="font-semibold mb-2">🔗 เชื่อม Google Sheets + Import/Export</h3>
+        <div class="grid md:grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="text-sm text-gray-300">Google Apps Script URL</label>
+            <input type="url" id="scriptUrl2" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded"
+                   placeholder="https://script.google.com/macros/s/..." />
+          </div>
+          <div class="flex items-end gap-2">
+            <button id="syncToSheetsBtn" class="px-3 py-2 bg-blue-600 text-white rounded btn">📤 ส่งข้อมูลขึ้นชีต</button>
+            <button id="exportJsonBtn" class="px-3 py-2 bg-indigo-600 text-white rounded btn">⬇️ Export JSON</button>
+            <select id="exportCsvType" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white">
+              <option value="Products">Products</option>
+              <option value="Stores">Stores</option>
+              <option value="Customers">Customers</option>
+              <option value="Categories">Categories</option>
+              <option value="Buys">Buys</option>
+              <option value="BuyItems">BuyItems</option>
+              <option value="Sells">Sells</option>
+              <option value="SellItems">SellItems</option>
+            </select>
+            <button id="exportCsvBtn" class="px-3 py-2 bg-indigo-600 text-white rounded btn">⬇️ Export CSV</button>
           </div>
         </div>
-        <div class="card p-3">
-          <h4 class="font-semibold mb-2">รายการขาย</h4>
-          <div class="table-wrap">
-            <table class="w-full text-sm">
-              <thead><tr><th class="p-2">วันที่</th><th class="p-2">ลูกค้า</th><th class="p-2">ยอด</th><th class="p-2">จัดการ</th></tr></thead>
-              <tbody id="sellHistory"></tbody>
-            </table>
-          </div>
+        <div class="flex gap-2 mb-2">
+          <input type="file" id="importJsonFile" accept="application/json" class="hidden" />
+          <button id="importMergeBtn" class="px-3 py-2 bg-amber-600 text-white rounded btn">⬆️ Import (Merge)</button>
+          <button id="importReplaceBtn" class="px-3 py-2 bg-rose-600 text-white rounded btn">⚠️ Import (Replace)</button>
         </div>
+        <div id="syncStatus" class="text-sm text-gray-400"></div>
       </div>
-
-    </div>
+    </section>
   </div>
 
-  <!-- REPORTS -->
-  <div id="reports" class="tabpane hidden">
-    <div class="card p-4">
-      <h2 class="text-xl font-semibold mb-3">📄 รายงาน (Apps Script)</h2>
-      <div class="grid md:grid-cols-3 gap-3">
-        <div>
-          <label class="text-sm text-slate-300">เดือน</label>
-          <input id="reportMonth" type="month" class="field w-full"/>
-        </div>
-        <div class="flex items-end">
-          <button id="generateServerPDF" class="btn bg-red-600">สร้าง PDF 3 หน้า</button>
-        </div>
-      </div>
-      <div class="text-xs text-slate-400 mt-2">ไฟล์จะไปเก็บในโฟลเดอร์ <span class="chip">POS_Monthly_Reports</span> ใน Google Drive</div>
-    </div>
-  </div>
-</div>
+  <!-- datalist สินค้า -->
+  <datalist id="productList"></datalist>
 
-<script>
-/* ------------------ State ------------------ */
-let products = JSON.parse(localStorage.getItem('products')||'[]');
-let stores = JSON.parse(localStorage.getItem('stores')||'["เซเว่น","โลตัส","บิ๊กซี","แม็คโคร"]');
-let customers = JSON.parse(localStorage.getItem('customers')||'["ลูกค้าทั่วไป"]');
-let categories = JSON.parse(localStorage.getItem('categories')||'["อาหาร","เครื่องดื่ม","ขนม","เครื่องใช้","อื่นๆ"]');
-let buyTransactions = JSON.parse(localStorage.getItem('buyTransactions')||'[]');
-let sellTransactions = JSON.parse(localStorage.getItem('sellTransactions')||'[]');
+  <script>
+  /* ====== STATE ====== */
+  let products = JSON.parse(localStorage.getItem('products')||'[]');
+  let stores = JSON.parse(localStorage.getItem('stores')||'[]');
+  let customers = JSON.parse(localStorage.getItem('customers')||'[]');
+  let categories = JSON.parse(localStorage.getItem('categories')||'[]');
+  let buyTransactions = JSON.parse(localStorage.getItem('buyTransactions')||'[]');
+  let sellTransactions = JSON.parse(localStorage.getItem('sellTransactions')||'[]');
+  let inFlight = false;
 
-const $ = sel => document.querySelector(sel);
-const $$ = sel => [...document.querySelectorAll(sel)];
-
-function saveToStorage(){
-  localStorage.setItem('products', JSON.stringify(products));
-  localStorage.setItem('stores', JSON.stringify(stores));
-  localStorage.setItem('customers', JSON.stringify(customers));
-  localStorage.setItem('categories', JSON.stringify(categories));
-  localStorage.setItem('buyTransactions', JSON.stringify(buyTransactions));
-  localStorage.setItem('sellTransactions', JSON.stringify(sellTransactions));
-}
-
-function uid(prefix=''){
-  return prefix + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
-}
-
-function toISODateClient(v){
-  if(!v) return '';
-  if (v instanceof Date) return v.toISOString().slice(0,10);
-  const s=String(v).trim();
-  const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
-  const d=new Date(s.replace(/\//g,'-'));
-  if(!isNaN(d)) return d.toISOString().slice(0,10);
-  return s;
-}
-function monthKeyFromDate(v){ const iso=toISODateClient(v); return (iso && iso.length>=7) ? iso.slice(0,7) : ''; }
-
-function thb(n){ return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(Number(n)||0); }
-
-/* ------------------ Tabs ------------------ */
-$$('.tab-btn').forEach(btn=>{
-  btn.onclick=()=>{
-    $$('.tab-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    const id=btn.dataset.tab;
-    $$('.tabpane').forEach(p=>p.classList.add('hidden'));
-    $('#'+id).classList.remove('hidden');
-    if(id==='summary'){ renderSummary(); }
-    if(id==='reports'){ const now=new Date(); $('#reportMonth').value = now.toISOString().slice(0,7); }
-  };
-});
-
-/* ------------------ Script URL + Status ------------------ */
-const syncStatus = $('#syncStatus');
-function setSyncStatus(msg,cls='text-sky-300'){ syncStatus.textContent=msg; syncStatus.className=cls; }
-function getScriptUrl(){ return $('#scriptUrl').value.trim(); }
-function rememberScriptUrl(){ localStorage.setItem('scriptUrl', getScriptUrl()); }
-(function restoreScriptUrl(){ const u=localStorage.getItem('scriptUrl'); if(u) $('#scriptUrl').value=u; })();
-
-/* ------------------ Init Defaults ------------------ */
-$('#buyDate').value = toISODateClient(new Date());
-$('#sellDate').value = toISODateClient(new Date());
-
-function refreshStoreCustomer(){
-  const buyStore = $('#buyStore');
-  buyStore.innerHTML = stores.map(s=>`<option value="${s}">${s}</option>`).join('');
-  const sellCustomer = $('#sellCustomer');
-  sellCustomer.innerHTML = customers.map(c=>`<option value="${c}">${c}</option>`).join('');
-}
-
-function refreshCategories(){
-  const sel = $('#productCategory');
-  sel.innerHTML = `<option value="">เลือกหมวดหมู่</option>` + categories.map(c=>`<option>${c}</option>`).join('');
-}
-
-function refreshProductTable(){
-  const tb = $('#productsTable');
-  if(!products.length){ tb.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-slate-400">ยังไม่มีสินค้า</td></tr>`; return; }
-  tb.innerHTML = products.map(p=>`
-    <tr class="border-b border-slate-700">
-      <td class="p-2">${p.name}</td>
-      <td class="p-2">${p.category||'-'}</td>
-      <td class="p-2">${thb(p.buyPrice||0)}</td>
-      <td class="p-2">${thb(p.sellPrice||0)}</td>
-      <td class="p-2"><span class="chip">${p.hasVat?'VAT 7%':'ไม่ VAT'}</span></td>
-      <td class="p-2">
-        <button class="text-amber-300" onclick="editProduct('${p.id}')">แก้ไข</button>
-        <span class="mx-2 text-slate-600">|</span>
-        <button class="text-rose-300" onclick="deleteProduct('${p.id}')">ลบ</button>
-      </td>
-    </tr>
-  `).join('');
-  refreshProductDatalist();
-}
-
-function refreshProductDatalist(){
-  const dl = $('#productDatalist');
-  dl.innerHTML = products.map(p=>`<option value="${p.name}"></option>`).join('');
-}
-
-/* ------------------ Product CRUD ------------------ */
-let editingProductId = null;
-$('#addProductBtn').onclick=()=>{ $('#productForm').classList.remove('hidden'); editingProductId=null; $('#productName').value=''; $('#productCategory').value=''; $('#productBuyPrice').value=''; $('#productSellPrice').value=''; $('#productHasVat').checked=false; };
-$('#cancelProductBtn').onclick=()=>{ $('#productForm').classList.add('hidden'); };
-
-$('#addCategoryBtn').onclick=()=>{
-  const name=prompt('ชื่อหมวดหมู่ใหม่:'); if(name && !categories.includes(name)){ categories.push(name); saveToStorage(); refreshCategories(); }
-};
-
-function editProduct(id){
-  const p=products.find(x=>x.id===id); if(!p) return;
-  $('#productForm').classList.remove('hidden');
-  editingProductId=id;
-  $('#productName').value=p.name;
-  $('#productCategory').value=p.category||'';
-  $('#productBuyPrice').value=p.buyPrice||0;
-  $('#productSellPrice').value=p.sellPrice||0;
-  $('#productHasVat').checked=!!p.hasVat;
-}
-
-function deleteProduct(id){
-  if(!confirm('ลบสินค้านี้?')) return;
-  products = products.filter(p=>p.id!==id);
-  saveToStorage(); refreshProductTable();
-}
-
-$('#saveProductBtn').onclick=()=>{
-  const name=$('#productName').value.trim();
-  const category=$('#productCategory').value.trim();
-  const buyPrice=Number($('#productBuyPrice').value||0);
-  const sellPrice=Number($('#productSellPrice').value||0);
-  const hasVat=$('#productHasVat').checked;
-  if(!name) return alert('กรอกชื่อสินค้า');
-  if(editingProductId){
-    const p=products.find(x=>x.id===editingProductId);
-    Object.assign(p,{name,category,buyPrice,sellPrice,hasVat});
-  }else{
-    products.push({id:uid('p_'),name,category,buyPrice,sellPrice,hasVat});
+  /* ====== Helpers ====== */
+  function saveAll(){
+    localStorage.setItem('products', JSON.stringify(products));
+    localStorage.setItem('stores', JSON.stringify(stores));
+    localStorage.setItem('customers', JSON.stringify(customers));
+    localStorage.setItem('categories', JSON.stringify(categories));
+    localStorage.setItem('buyTransactions', JSON.stringify(buyTransactions));
+    localStorage.setItem('sellTransactions', JSON.stringify(sellTransactions));
   }
-  saveToStorage(); refreshProductTable(); $('#productForm').classList.add('hidden'); refreshProductDatalist();
-};
+  function thb(n){ return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(Number(n)||0); }
+  function setSyncStatus(msg, cls){ const el=document.getElementById('syncStatus'); if(!el) return; el.textContent=msg; el.className='text-sm '+(cls||'text-gray-300');}
+  function todayISO(){ return new Date().toISOString().slice(0,10); }
 
-/* ------------------ Add Store/Customer ------------------ */
-$('#addStoreBtn').onclick=()=>{ const s=prompt('ชื่อร้าน:'); if(s && !stores.includes(s)){ stores.push(s); saveToStorage(); refreshStoreCustomer(); } };
-$('#addCustomerBtn').onclick=()=>{ const c=prompt('ชื่อลูกค้า:'); if(c && !customers.includes(c)){ customers.push(c); saveToStorage(); refreshStoreCustomer(); } };
-
-/* ------------------ Item Rows (Buy/Sell) ------------------ */
-function makeItemRow(mode/* buy|sell */){
-  const wrap = document.createElement('div');
-  wrap.className='card p-3';
-  wrap.innerHTML=`
-    <div class="grid md:grid-cols-4 gap-2 items-end">
-      <div>
-        <label class="text-xs text-slate-400">สินค้า</label>
-        <input class="field w-full product-name" list="productDatalist" placeholder="พิมพ์เพื่อค้นหา"/>
-      </div>
-      <div>
-        <label class="text-xs text-slate-400">จำนวน</label>
-        <input class="field w-full qty" type="number" min="1" value="1"/>
-      </div>
-      <div>
-        <label class="text-xs text-slate-400">${mode==='buy'?'ราคาซื้อ (฿)':'ราคาขาย (฿)'}</label>
-        <input class="field w-full price" type="number" min="0" step="0.01" />
-      </div>
-      <div class="flex items-end justify-end gap-2">
-        <span class="text-slate-400 text-sm total">รวม: ฿0</span>
-        <button class="btn bg-rose-700 remove">ลบ</button>
-      </div>
-    </div>
-  `;
-  const nameInput = wrap.querySelector('.product-name');
-  const qtyInput = wrap.querySelector('.qty');
-  const priceInput = wrap.querySelector('.price');
-  const totalSpan = wrap.querySelector('.total');
-
-  function recalc(){ const t=(Number(qtyInput.value||0)*Number(priceInput.value||0)); totalSpan.textContent='รวม: '+thb(t); }
-
-  nameInput.addEventListener('input', ()=>{
-    const p = products.find(x=> x.name.toLowerCase() === nameInput.value.trim().toLowerCase());
-    if(p){
-      nameInput.dataset.productId = p.id;
-      priceInput.value = mode==='buy' ? (p.buyPrice||0) : (p.sellPrice||0);
-      recalc();
-    }else{
-      delete nameInput.dataset.productId;
-    }
-  });
-  qtyInput.addEventListener('input', recalc);
-  priceInput.addEventListener('input', recalc);
-  wrap.querySelector('.remove').onclick=()=>{ const parent=wrap.parentElement; if(parent.children.length>1) wrap.remove(); else alert('ต้องมีอย่างน้อย 1 รายการ'); };
-  return wrap;
-}
-
-function ensureOneRow(containerId, mode){
-  const c = $('#'+containerId);
-  if(!c.children.length) c.appendChild(makeItemRow(mode));
-}
-
-/* ------------------ Prevent Double Submit ------------------ */
-let submitLocks = { buy:false, sell:false };
-let lastHash = { buy:'', sell:'' };
-function objHash(o){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).slice(-24); }catch(_){ return String(Math.random()); } }
-
-/* ------------------ BUY Submit ------------------ */
-$('#addBuyItem').onclick=()=>{ $('#buyItems').appendChild(makeItemRow('buy')); };
-$('#buyResetBtn').onclick=()=>{ $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy'); };
-
-$('#buySubmitBtn').onclick=async ()=>{
-  if(submitLocks.buy) return;
-  const date = toISODateClient($('#buyDate').value);
-  const store = $('#buyStore').value;
-  const items = [...$('#buyItems').children].map(div=>{
-    const name=div.querySelector('.product-name').value.trim();
-    const pid=div.querySelector('.product-name').dataset.productId||'';
-    const qty=Number(div.querySelector('.qty').value||0);
-    const price=Number(div.querySelector('.price').value||0);
-    const prod = products.find(p=>p.id===pid || p.name.toLowerCase()===name.toLowerCase());
-    if(!prod) return null;
-    return { productId: prod.id, productName: prod.name, quantity: qty, price, total: qty*price, hasVat: !!prod.hasVat };
-  }).filter(Boolean);
-  if(!date || !store || !items.length) return alert('กรอกข้อมูลให้ครบ');
-  const total = items.reduce((s,i)=>s+i.total,0);
-  const tx = { id: uid('b_'), date, store, items, total };
-
-  const h = objHash(tx);
-  if(h === lastHash.buy) return alert('คุณเพิ่งบันทึกรายการนี้ไปแล้ว');
-  lastHash.buy = h; submitLocks.buy=true; $('#buySubmitBtn').disabled=true;
-
-  buyTransactions.push(tx); saveToStorage();
-  const ok = await syncNow('buy-save'); // sync ทุกครั้งที่บันทึก
-  submitLocks.buy=false; $('#buySubmitBtn').disabled=false;
-  if(ok) { alert('บันทึกการซื้อเรียบร้อย'); $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy'); }
-};
-
-/* ------------------ SELL Submit ------------------ */
-$('#addSellItem').onclick=()=>{ $('#sellItems').appendChild(makeItemRow('sell')); };
-$('#sellResetBtn').onclick=()=>{ $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell'); };
-
-$('#sellSubmitBtn').onclick=async ()=>{
-  if(submitLocks.sell) return;
-  const date = toISODateClient($('#sellDate').value);
-  const customer = $('#sellCustomer').value;
-  const items = [...$('#sellItems').children].map(div=>{
-    const name=div.querySelector('.product-name').value.trim();
-    const pid=div.querySelector('.product-name').dataset.productId||'';
-    const qty=Number(div.querySelector('.qty').value||0);
-    const price=Number(div.querySelector('.price').value||0);
-    const prod = products.find(p=>p.id===pid || p.name.toLowerCase()===name.toLowerCase());
-    if(!prod) return null;
-    return { productId: prod.id, productName: prod.name, quantity: qty, price, total: qty*price, hasVat: !!prod.hasVat };
-  }).filter(Boolean);
-  if(!date || !customer || !items.length) return alert('กรอกข้อมูลให้ครบ');
-  const total = items.reduce((s,i)=>s+i.total,0);
-  const tx = { id: uid('s_'), date, customer, items, total };
-
-  const h = objHash(tx);
-  if(h === lastHash.sell) return alert('คุณเพิ่งบันทึกรายการนี้ไปแล้ว');
-  lastHash.sell = h; submitLocks.sell=true; $('#sellSubmitBtn').disabled=true;
-
-  sellTransactions.push(tx); saveToStorage();
-  const ok = await syncNow('sell-save');
-  submitLocks.sell=false; $('#sellSubmitBtn').disabled=false;
-  if(ok) { alert('บันทึกการขายเรียบร้อย'); $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell'); }
-};
-
-/* ------------------ LOAD / SETUP / SYNC ------------------ */
-async function httpJson(url, opt={}, retry=0){
-  const res = await fetch(url, opt);
-  const text = await res.text();
-  try{ return JSON.parse(text); }catch(_){ return { ok:false, error:text }; }
-}
-async function postPlainJson(url, payload){
-  const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
-  const txt = await res.text(); try{ return JSON.parse(txt); }catch(_){ return { ok:false, error: txt }; }
-}
-async function ping(url){ return fetch(url+'?action=setup',{method:'GET'}).then(()=>true).catch(()=>false); }
-
-function dedupAndSanitizeTx(arr){
-  const map=new Map();
-  (arr||[]).forEach(t=>{
-    const id = String(t.id||uid('t_'));
-    const date = toISODateClient(t.date);
-    const items = (t.items||[]).filter(i=>i && i.productName && Number(i.quantity)>0);
-    const total = items.reduce((s,i)=>s+Number(i.total||i.quantity*i.price||0),0);
-    map.set(id, {...t,id,date,items,total});
-  });
-  return [...map.values()];
-}
-function prepareSnapshot(){
-  products = (products||[]).map(p=>({...p, id: String(p.id||uid('p_'))}));
-  buyTransactions = dedupAndSanitizeTx(buyTransactions);
-  sellTransactions = dedupAndSanitizeTx(sellTransactions);
-  saveToStorage();
-}
-function replaceStateFromServer(d){
-  products = (d.products||[]).map(p=>({...p, id:String(p.id||uid('p_'))}));
-  buyTransactions = dedupAndSanitizeTx(d.buyTransactions||[]);
-  sellTransactions = dedupAndSanitizeTx(d.sellTransactions||[]);
-  stores = Array.from(new Set(d.stores||[]));
-  customers = Array.from(new Set((d.customers||[]).concat(['ลูกค้าทั่วไป'])));
-  categories = Array.from(new Set(d.categories||[]));
-  saveToStorage();
-}
-
-$('#setupBtn').onclick=async ()=>{
-  const u=getScriptUrl(); if(!u) return alert('กรุณาใส่ Script URL');
-  rememberScriptUrl();
-  setSyncStatus('กำลังตั้งค่า...','text-yellow-400');
-  const r=await httpJson(u+'?action=setup');
-  if(r?.ok){ setSyncStatus('ตั้งค่าสำเร็จ','text-emerald-400'); } else { setSyncStatus('ผิดพลาด: '+(r?.error||'unknown'),'text-rose-400');}
-};
-
-$('#loadBtn').onclick=async ()=>{
-  const u=getScriptUrl(); if(!u) return alert('กรุณาใส่ Script URL');
-  rememberScriptUrl();
-  setSyncStatus('กำลังโหลด...','text-yellow-400');
-  try{
-    const d = await httpJson(u+'?action=load',{method:'GET'});
-    if(d?.ok){
-      replaceStateFromServer(d);
-      refreshAllUI();
-      setSyncStatus('โหลดข้อมูลสำเร็จ','text-emerald-400');
-    }else{
-      setSyncStatus('โหลดไม่สำเร็จ: '+(d?.error||'unknown'),'text-rose-400');
-    }
-  }catch(e){
-    setSyncStatus('โหลดไม่สำเร็จ: '+e,'text-rose-400');
+  function getScriptUrl(){
+    const p1 = document.getElementById('scriptUrl')?.value?.trim();
+    const p2 = document.getElementById('scriptUrl2')?.value?.trim();
+    const v = p2 || p1 || localStorage.getItem('scriptUrl') || '';
+    if (v && !document.getElementById('scriptUrl').value) document.getElementById('scriptUrl').value = v;
+    if (v && !document.getElementById('scriptUrl2').value) document.getElementById('scriptUrl2').value = v;
+    return v;
   }
-};
-
-$('#syncBtn').onclick=()=>syncNow('manual');
-
-async function syncNow(reason='auto'){
-  const u=getScriptUrl(); if(!u){ setSyncStatus('ยังไม่ได้ใส่ URL','text-rose-400'); return false; }
-  rememberScriptUrl();
-  setSyncStatus(`กำลังส่งข้อมูล (${reason})...`,'text-yellow-400');
-
-  prepareSnapshot();
-  const payload={ products, stores, customers, categories, buyTransactions, sellTransactions, timestamp: new Date().toISOString() };
-  try{
-    const r=await postPlainJson(u, payload);
-    if(r?.ok){ setSyncStatus(`ส่งข้อมูลสำเร็จ (${reason})`,'text-emerald-400'); return true; }
-    setSyncStatus('สคริปต์ตอบผิดพลาด: '+(r?.error||'unknown'),'text-rose-400'); return false;
-  }catch(e){
-    setSyncStatus('ส่งข้อมูลไม่สำเร็จ: '+e,'text-rose-400'); return false;
+  function rememberScriptUrl(){
+    const v = getScriptUrl();
+    if (v) localStorage.setItem('scriptUrl', v);
   }
-}
 
-/* ------------------ Summary & History ------------------ */
-function aggForMonth(mode, month){ // returns aggregations
-  const source = (mode==='buy') ? buyTransactions : sellTransactions;
-  const arr = source.filter(t=> monthKeyFromDate(t.date)===month);
-  const items = arr.flatMap(t=> t.items.map(i=>({...i, _actor: mode==='buy'? t.store : t.customer})));
-
-  const byProduct = new Map();
-  items.forEach(i=>{
-    const k = i.productName;
-    const cat = (products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ';
-    if(!byProduct.has(k)) byProduct.set(k, {productName:k, category:cat, qty:0, amount:0});
-    const x=byProduct.get(k); x.qty+=Number(i.quantity||0); x.amount+=Number(i.total||0);
-  });
-
-  const byCategory = new Map();
-  [...byProduct.values()].forEach(p=>{
-    if(!byCategory.has(p.category)) byCategory.set(p.category,{category:p.category, qty:0, amount:0});
-    const x=byCategory.get(p.category); x.qty+=p.qty; x.amount+=p.amount;
-  });
-
-  const byActor = new Map();
-  items.forEach(i=>{
-    const a=i._actor||'ไม่ระบุ';
-    if(!byActor.has(a)) byActor.set(a,{actor:a, amount:0});
-    byActor.get(a).amount += Number(i.total||0);
-  });
-
-  const totalQty = items.reduce((s,i)=>s+Number(i.quantity||0),0);
-  const totalAmt = items.reduce((s,i)=>s+Number(i.total||0),0);
-  const vatAmt = items.filter(i=>i.hasVat).reduce((s,i)=>s+Number(i.total||0)*0.07,0);
-
-  return {
-    items,
-    arrP:[...byProduct.values()].sort((a,b)=>b.amount-a.amount),
-    arrC:[...byCategory.values()].sort((a,b)=>b.amount-a.amount),
-    arrA:[...byActor.values()].sort((a,b)=>b.amount-a.amount),
-    totalQty, totalAmt, vatAmt
-  };
-}
-
-function renderSummary(){
-  const month = $('#sumMonth').value || new Date().toISOString().slice(0,7);
-  $('#sumMonth').value = month;
-  const mode = $('#sumMode').value;
-
-  // profit (ขาย-ซื้อ) เดือนเดียวกัน
-  const b = aggForMonth('buy', month), s = aggForMonth('sell', month);
-
-  const cur = (mode==='buy') ? b : s;
-  $('#sumTotalQty').textContent = cur.totalQty.toLocaleString('th-TH');
-  $('#sumTotalAmt').textContent = thb(cur.totalAmt);
-  $('#sumVatAmt').textContent = thb(cur.vatAmt);
-  $('#sumProfit').textContent = thb(s.totalAmt - b.totalAmt);
-
-  $('#actorTitle').textContent = mode==='buy' ? 'ตามร้าน' : 'ตามลูกค้า';
-  $('#actorCol').textContent = mode==='buy' ? 'ร้าน' : 'ลูกค้า';
-
-  $('#sumByProduct').innerHTML = cur.arrP.map(x=>`<tr><td class="p-1">${x.productName}</td><td class="p-1">${x.category}</td><td class="p-1">${x.qty.toLocaleString('th-TH')}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('') || `<tr><td colspan="4" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
-  $('#sumByCategory').innerHTML = cur.arrC.map(x=>`<tr><td class="p-1">${x.category}</td><td class="p-1">${x.qty.toLocaleString('th-TH')}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('') || `<tr><td colspan="3" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
-  $('#sumByActor').innerHTML = cur.arrA.map(x=>`<tr><td class="p-1">${x.actor}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('') || `<tr><td colspan="2" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
-
-  // History
-  const buyRows = buyTransactions.filter(t=>monthKeyFromDate(t.date)===month).map(t=>`
-    <tr class="border-b border-slate-700">
-      <td class="p-2">${t.date}</td><td class="p-2">${t.store||'-'}</td><td class="p-2">${thb(t.total)}</td>
-      <td class="p-2">
-        <button class="text-amber-300" onclick="loadTxToForm('buy','${t.id}')">แก้ไข</button>
-        <span class="mx-2 text-slate-600">|</span>
-        <button class="text-rose-300" onclick="deleteTx('buy','${t.id}')">ลบ</button>
-      </td>
-    </tr>`).join('');
-  $('#buyHistory').innerHTML = buyRows || `<tr><td colspan="4" class="p-2 text-center text-slate-500">ไม่มีรายการ</td></tr>`;
-
-  const sellRows = sellTransactions.filter(t=>monthKeyFromDate(t.date)===month).map(t=>`
-    <tr class="border-b border-slate-700">
-      <td class="p-2">${t.date}</td><td class="p-2">${t.customer||'-'}</td><td class="p-2">${thb(t.total)}</td>
-      <td class="p-2">
-        <button class="text-amber-300" onclick="loadTxToForm('sell','${t.id}')">แก้ไข</button>
-        <span class="mx-2 text-slate-600">|</span>
-        <button class="text-rose-300" onclick="deleteTx('sell','${t.id}')">ลบ</button>
-      </td>
-    </tr>`).join('');
-  $('#sellHistory').innerHTML = sellRows || `<tr><td colspan="4" class="p-2 text-center text-slate-500">ไม่มีรายการ</td></tr>`;
-}
-
-/* load tx to form for edit */
-window.loadTxToForm = (mode,id)=>{
-  const arr = mode==='buy'? buyTransactions : sellTransactions;
-  const tx = arr.find(t=>t.id===id); if(!tx) return;
-  // go to tab
-  $$('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelector(`.tab-btn[data-tab="${mode}"]`).classList.add('active');
-  $$('.tabpane').forEach(p=>p.classList.add('hidden'));
-  $('#'+mode).classList.remove('hidden');
-  if(mode==='buy'){
-    $('#buyDate').value = toISODateClient(tx.date);
-    $('#buyStore').value = tx.store||'';
-    $('#buyItems').innerHTML='';
-    tx.items.forEach(()=>$('#buyItems').appendChild(makeItemRow('buy')));
-    [...$('#buyItems').children].forEach((div,i)=>{
-      const it=tx.items[i]; const name=div.querySelector('.product-name'); const qty=div.querySelector('.qty'); const price=div.querySelector('.price');
-      const prod = products.find(p=>p.id===it.productId) || {name:it.productName};
-      name.value = prod.name; name.dataset.productId = it.productId;
-      qty.value = it.quantity; price.value = it.price;
-      div.querySelector('.total').textContent = 'รวม: '+thb(it.total);
-    });
-    // replace on save
-    $('#buySubmitBtn').onclick=async ()=>{
-      if(submitLocks.buy) return;
-      const date = toISODateClient($('#buyDate').value);
-      const store = $('#buyStore').value;
-      const items = [...$('#buyItems').children].map(div=>{
-        const nm=div.querySelector('.product-name').value.trim();
-        const pid=div.querySelector('.product-name').dataset.productId||'';
-        const qty=Number(div.querySelector('.qty').value||0);
-        const price=Number(div.querySelector('.price').value||0);
-        const prod = products.find(p=>p.id===pid || p.name.toLowerCase()===nm.toLowerCase());
-        if(!prod) return null;
-        return { productId: prod.id, productName: prod.name, quantity: qty, price, total: qty*price, hasVat: !!prod.hasVat };
-      }).filter(Boolean);
-      const total = items.reduce((s,i)=>s+i.total,0);
-      Object.assign(tx,{date,store,items,total});
-      saveToStorage(); const ok=await syncNow('buy-edit'); if(ok) alert('แก้ไขเรียบร้อย');
+  /* ====== Tabs ====== */
+  document.querySelectorAll('.tab').forEach(btn=>{
+    btn.onclick = ()=>{
+      document.querySelectorAll('.tab').forEach(b=> b.classList.remove('bg-blue-600','text-white'));
+      btn.classList.add('bg-blue-600','text-white');
+      document.querySelectorAll('section').forEach(s=> s.classList.add('hidden'));
+      document.getElementById(btn.dataset.tab).classList.remove('hidden');
+      if (btn.dataset.tab==='summary') refreshSummary();
+      if (btn.dataset.tab==='reports'){
+        const now = new Date(); document.getElementById('reportMonth').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      }
     };
-  }else{
-    $('#sellDate').value = toISODateClient(tx.date);
-    $('#sellCustomer').value = tx.customer||'';
-    $('#sellItems').innerHTML='';
-    tx.items.forEach(()=>$('#sellItems').appendChild(makeItemRow('sell')));
-    [...$('#sellItems').children].forEach((div,i)=>{
-      const it=tx.items[i]; const name=div.querySelector('.product-name'); const qty=div.querySelector('.qty'); const price=div.querySelector('.price');
-      const prod = products.find(p=>p.id===it.productId) || {name:it.productName};
-      name.value = prod.name; name.dataset.productId = it.productId;
-      qty.value = it.quantity; price.value = it.price;
-      div.querySelector('.total').textContent = 'รวม: '+thb(it.total);
+  });
+
+  /* ====== Dropdowns & Tables ====== */
+  function refreshStores(){
+    const sel=document.getElementById('buyStore'); sel.innerHTML='<option value="">เลือกร้าน</option>';
+    stores.forEach(s=> sel.innerHTML+=`<option value="${s}">${s}</option>`);
+  }
+  function refreshCustomers(){
+    const sel=document.getElementById('sellCustomer'); sel.innerHTML='<option value="">เลือกลูกค้า</option><option value="ลูกค้าทั่วไป">ลูกค้าทั่วไป</option>';
+    customers.forEach(c=> sel.innerHTML+=`<option value="${c}">${c}</option>`);
+  }
+  function refreshCategories(){
+    const sel=document.getElementById('productCategory'); sel.innerHTML='<option value="">เลือกหมวดหมู่</option>';
+    categories.forEach(c=> sel.innerHTML+=`<option value="${c}">${c}</option>`);
+  }
+  function refreshProductsTable(){
+    const tbody=document.getElementById('productsTable');
+    if (!products.length){ tbody.innerHTML='<tr><td colspan="7" class="text-center py-6 text-gray-400">ยังไม่มีสินค้า</td></tr>'; return; }
+    tbody.innerHTML = products.map(p=>{
+      const vatPrice = p.hasVat ? (Number(p.sellPrice)*1.07) : Number(p.sellPrice);
+      return `
+      <tr class="border-b border-gray-700">
+        <td class="py-2 px-2">${p.name}</td>
+        <td class="py-2 px-2">${p.category||'-'}</td>
+        <td class="py-2 px-2">${thb(p.buyPrice)}</td>
+        <td class="py-2 px-2">${thb(p.sellPrice)}</td>
+        <td class="py-2 px-2"><span class="chip ${p.hasVat?'border-emerald-500 text-emerald-300':'text-gray-300'}">${p.hasVat?'มี VAT':'ไม่มี VAT'}</span></td>
+        <td class="py-2 px-2 font-semibold">${thb(vatPrice)}</td>
+        <td class="py-2 px-2"><button class="text-rose-400" onclick="deleteProduct('${p.id}')">ลบ</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ====== Datalist Autocomplete ====== */
+  function rebuildDatalist(){
+    const dl = document.getElementById('productList');
+    dl.innerHTML = products.map(p=> `<option value="${p.name}" data-id="${p.id}"></option>`).join('');
+  }
+
+  function makeRow(containerId, type){ // type: 'buy'|'sell'
+    const row = document.createElement('div');
+    row.className = `${type}-item grid md:grid-cols-4 gap-3 p-3 mb-3 dark-glass`;
+    row.innerHTML = `
+      <div>
+        <label class="text-sm text-gray-300">สินค้า</label>
+        <input list="productList" placeholder="พิมพ์ชื่อสินค้า..." class="product-input w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" />
+        <input type="hidden" class="product-id"/>
+      </div>
+      <div>
+        <label class="text-sm text-gray-300">จำนวน</label>
+        <input type="number" min="1" value="1" class="quantity-input w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded"/>
+      </div>
+      <div>
+        <label class="text-sm text-gray-300">${type==='buy'?'ราคา (฿)':'ราคาขาย (฿)'}</label>
+        <input type="number" step="0.01" min="0" class="price-input w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded"/>
+      </div>
+      <div class="flex items-end">
+        <button type="button" class="remove-item px-3 py-2 bg-rose-600 text-white rounded btn w-full">ลบ</button>
+      </div>`;
+    document.getElementById(containerId).appendChild(row);
+  }
+
+  function hookRowEvents(){
+    document.addEventListener('change', (e)=>{
+      if (e.target && e.target.classList.contains('product-input')){
+        const name = e.target.value.trim();
+        const found = products.find(p=> p.name===name);
+        const row = e.target.closest('.buy-item,.sell-item');
+        const pidEl = row.querySelector('.product-id');
+        const priceEl = row.querySelector('.price-input');
+        if (found){
+          pidEl.value = found.id;
+          priceEl.value = row.classList.contains('buy-item') ? (found.buyPrice||0) : (found.sellPrice||0);
+        }else{
+          pidEl.value = '';
+        }
+      }
+      if (e.target && e.target.classList.contains('remove-item')){
+        const box = e.target.closest('.buy-item,.sell-item');
+        const container = box.parentElement;
+        if (container.querySelectorAll('.buy-item,.sell-item').length>1) box.remove();
+      }
     });
-    $('#sellSubmitBtn').onclick=async ()=>{
-      if(submitLocks.sell) return;
-      const date = toISODateClient($('#sellDate').value);
-      const customer = $('#sellCustomer').value;
-      const items = [...$('#sellItems').children].map(div=>{
-        const nm=div.querySelector('.product-name').value.trim();
-        const pid=div.querySelector('.product-name').dataset.productId||'';
-        const qty=Number(div.querySelector('.qty').value||0);
-        const price=Number(div.querySelector('.price').value||0);
-        const prod = products.find(p=>p.id===pid || p.name.toLowerCase()===nm.toLowerCase());
-        if(!prod) return null;
-        return { productId: prod.id, productName: prod.name, quantity: qty, price, total: qty*price, hasVat: !!prod.hasVat };
-      }).filter(Boolean);
-      const total = items.reduce((s,i)=>s+i.total,0);
-      Object.assign(tx,{date,customer,items,total});
-      saveToStorage(); const ok=await syncNow('sell-edit'); if(ok) alert('แก้ไขเรียบร้อย');
+  }
+
+  /* ====== Submit: ป้องกันกดรัว + sync ทันที ====== */
+  function lock(btn){ inFlight=true; if (btn){ btn.disabled=true; btn.classList.add('opacity-60','cursor-not-allowed'); } }
+  function unlock(btn){ inFlight=false; if (btn){ btn.disabled=false; btn.classList.remove('opacity-60','cursor-not-allowed'); } }
+
+  async function syncNow(reason='manual'){
+    const url = getScriptUrl(); if(!url) { alert('กรุณาใส่ Script URL'); return false; }
+    rememberScriptUrl();
+    const payload = { products, stores, customers, categories, buyTransactions, sellTransactions, timestamp:new Date().toISOString(), reason };
+    try{
+      const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload)});
+      const text = await res.text(); let d; try{ d=JSON.parse(text);}catch(_){ d={ok:false,error:text}; }
+      if (d.ok){ setSyncStatus('ซิงก์สำเร็จ','text-emerald-400'); return true; }
+      setSyncStatus('ซิงก์ล้มเหลว: '+(d.error||'unknown'),'text-rose-400'); return false;
+    }catch(err){ setSyncStatus('ซิงก์ล้มเหลว: '+err,'text-rose-400'); return false; }
+  }
+
+  /* ====== BUY & SELL Handlers ====== */
+  document.getElementById('addBuyItem').onclick = ()=> makeRow('buyItems','buy');
+  document.getElementById('addSellItem').onclick = ()=> makeRow('sellItems','sell');
+
+  document.getElementById('buyForm').addEventListener('submit', async function(e){
+    e.preventDefault(); if (inFlight) return; const btn = this.querySelector('button[type="submit"]'); lock(btn);
+    const date = document.getElementById('buyDate').value || todayISO();
+    const store = document.getElementById('buyStore').value || '';
+    const items = [];
+    document.querySelectorAll('#buyItems .buy-item').forEach(row=>{
+      const pid=row.querySelector('.product-id').value;
+      const name=row.querySelector('.product-input').value.trim();
+      const qty=Number(row.querySelector('.quantity-input').value)||0;
+      const price=Number(row.querySelector('.price-input').value)||0;
+      if (name && qty>0){
+        const p = products.find(pp=> String(pp.id)===String(pid) || pp.name===name) || {hasVat:false};
+        items.push({ productId: p.id||'', productName: name, quantity: qty, price, total: qty*price, hasVat: !!p.hasVat });
+      }
+    });
+    if (!items.length){ unlock(btn); return alert('กรุณาเพิ่มรายการ'); }
+    buyTransactions.push({ id: String(Date.now()), date, store, items, total: items.reduce((s,i)=>s+i.total,0) });
+    saveAll();
+    const ok = await syncNow('buy-submit');
+    unlock(btn);
+    if (ok){ alert('บันทึกซื้อสำเร็จ'); this.reset(); document.getElementById('buyDate').value=todayISO(); document.getElementById('buyItems').innerHTML=''; makeRow('buyItems','buy'); }
+  });
+
+  document.getElementById('sellForm').addEventListener('submit', async function(e){
+    e.preventDefault(); if (inFlight) return; const btn = this.querySelector('button[type="submit"]'); lock(btn);
+    const date = document.getElementById('sellDate').value || todayISO();
+    const customer = document.getElementById('sellCustomer').value || 'ลูกค้าทั่วไป';
+    const items = [];
+    document.querySelectorAll('#sellItems .sell-item').forEach(row=>{
+      const pid=row.querySelector('.product-id').value;
+      const name=row.querySelector('.product-input').value.trim();
+      const qty=Number(row.querySelector('.quantity-input').value)||0;
+      const price=Number(row.querySelector('.price-input').value)||0;
+      if (name && qty>0){
+        const p = products.find(pp=> String(pp.id)===String(pid) || pp.name===name) || {hasVat:false};
+        items.push({ productId: p.id||'', productName: name, quantity: qty, price, total: qty*price, hasVat: !!p.hasVat });
+      }
+    });
+    if (!items.length){ unlock(btn); return alert('กรุณาเพิ่มรายการ'); }
+    sellTransactions.push({ id: String(Date.now()), date, customer, items, total: items.reduce((s,i)=>s+i.total,0) });
+    saveAll();
+    const ok = await syncNow('sell-submit');
+    unlock(btn);
+    if (ok){ alert('บันทึกขายสำเร็จ'); this.reset(); document.getElementById('sellDate').value=todayISO(); document.getElementById('sellItems').innerHTML=''; makeRow('sellItems','sell'); }
+  });
+
+  /* ====== Summary ====== */
+  function buildMonthData(month){
+    const inMonth = (d)=> String(d||'').slice(0,7)===month;
+    const buysM = buyTransactions.filter(t=> inMonth(t.date)); 
+    const sellsM = sellTransactions.filter(t=> inMonth(t.date));
+    const allItems = [...buysM.flatMap(t=>t.items), ...sellsM.flatMap(t=>t.items)];
+    const vatItems = allItems.filter(i=>i.hasVat);
+    const noVatItems = allItems.filter(i=>!i.hasVat);
+    const vatSubtotal = vatItems.reduce((s,i)=>s+i.total,0);
+    const vatAmount = vatSubtotal*0.07;
+    const vatTotal = vatSubtotal+vatAmount;
+    const noVatTotal = noVatItems.reduce((s,i)=>s+i.total,0);
+    const totalBuy = buysM.reduce((s,t)=>s+t.total,0);
+    const totalSell = sellsM.reduce((s,t)=>s+t.total,0);
+    return { vatItems, noVatItems, vatSubtotal, vatAmount, vatTotal, noVatTotal, totalBuy, totalSell, profit: totalSell-totalBuy };
+  }
+  function refreshSummary(){
+    const m = document.getElementById('sumMonth').value || new Date().toISOString().slice(0,7);
+    const d = buildMonthData(m);
+    document.getElementById('sumTotalBuy').textContent = thb(d.totalBuy);
+    document.getElementById('sumTotalSell').textContent = thb(d.totalSell);
+    document.getElementById('sumTotalVat').textContent = thb(d.vatAmount);
+    document.getElementById('sumProfit').textContent = thb(d.profit);
+    document.getElementById('vatItemsCount').textContent = d.vatItems.length;
+    document.getElementById('vatSubtotal').textContent = thb(d.vatSubtotal);
+    document.getElementById('vatAmount').textContent = thb(d.vatAmount);
+    document.getElementById('vatTotal').textContent = thb(d.vatTotal);
+    document.getElementById('noVatItemsCount').textContent = d.noVatItems.length;
+    document.getElementById('noVatTotal').textContent = thb(d.noVatTotal);
+    const vatT = document.getElementById('vatItemsList');
+    vatT.innerHTML = d.vatItems.length ? d.vatItems.map(i=>`<tr class="border-b border-gray-800"><td class="py-1">${i.productName}</td><td>${i.quantity}</td><td>${thb(i.price)}</td><td>${thb(i.total)}</td></tr>`).join('') : '<tr><td colspan="4" class="text-center py-3 text-gray-400">ไม่มีรายการ</td></tr>';
+    const noVatT = document.getElementById('noVatItemsList');
+    noVatT.innerHTML = d.noVatItems.length ? d.noVatItems.map(i=>`<tr class="border-b border-gray-800"><td class="py-1">${i.productName}</td><td>${i.quantity}</td><td>${thb(i.price)}</td><td>${thb(i.total)}</td></tr>`).join('') : '<tr><td colspan="4" class="text-center py-3 text-gray-400">ไม่มีรายการ</td></tr>';
+  }
+  document.getElementById('refreshSummary').onclick = refreshSummary;
+
+  /* ====== Reports / Sheets Buttons ====== */
+  document.getElementById('generatePDFBtn').onclick = async ()=>{
+    const url=getScriptUrl(); if(!url) return alert('กรุณาใส่ Script URL'); rememberScriptUrl();
+    const month=document.getElementById('reportMonth').value || new Date().toISOString().slice(0,7);
+    setSyncStatus('กำลังสร้าง PDF 3 หน้า...','text-yellow-400');
+    try{
+      const r=await fetch(`${url}?action=pdf&month=${encodeURIComponent(month)}`); const t=await r.text(); let d; try{d=JSON.parse(t);}catch(_){d={ok:false,error:t};}
+      if (d.ok && d.url){ window.open(d.url,'_blank'); setSyncStatus('สร้าง PDF สำเร็จ','text-emerald-400'); }
+      else setSyncStatus('สร้าง PDF ไม่สำเร็จ: '+(d.error||'unknown'),'text-rose-400');
+    }catch(e){ setSyncStatus('สร้าง PDF ไม่สำเร็จ: '+e,'text-rose-400');}
+  };
+
+  document.getElementById('exportCustomPdf').onclick = async ()=>{
+    const url=getScriptUrl(); if(!url) return alert('กรุณาใส่ Script URL'); rememberScriptUrl();
+    const month=document.getElementById('reportMonth').value || new Date().toISOString().slice(0,7);
+    const mode=document.getElementById('pdfMode').value;
+    const filter=document.getElementById('pdfFilter').value;
+    const actor=document.getElementById('pdfActor').value || '__ALL__';
+    setSyncStatus('กำลังสร้าง PDF แบบเลือก...','text-yellow-400');
+    try{
+      const r=await fetch(`${url}?action=pdf_custom&month=${encodeURIComponent(month)}&mode=${encodeURIComponent(mode)}&filter=${encodeURIComponent(filter)}&actor=${encodeURIComponent(actor)}`);
+      const t=await r.text(); let d; try{d=JSON.parse(t);}catch(_){d={ok:false,error:t};}
+      if (d.ok && d.url){ window.open(d.url,'_blank'); setSyncStatus('สร้าง PDF แบบเลือกสำเร็จ','text-emerald-400'); }
+      else setSyncStatus('สร้าง PDF ไม่สำเร็จ: '+(d.error||'unknown'),'text-rose-400');
+    }catch(e){ setSyncStatus('สร้าง PDF ไม่สำเร็จ: '+e,'text-rose-400');}
+  };
+
+  document.getElementById('syncToSheetsBtn').onclick = async ()=>{ await syncNow('manual'); };
+  document.getElementById('btnSetup').onclick = async ()=>{
+    const url=getScriptUrl(); if(!url) return alert('กรุณาใส่ Script URL'); rememberScriptUrl();
+    try{
+      const r=await fetch(`${url}?action=setup`); const t=await r.text(); let d; try{d=JSON.parse(t);}catch(_){d={ok:false,error:t};}
+      alert(d.ok?'Setup สำเร็จ':'Setup ล้มเหลว: '+(d.error||'unknown'));
+    }catch(e){ alert('Setup ล้มเหลว: '+e); }
+  };
+
+  // Export/Import
+  function downloadBlob(filename, mime, text){
+    const blob=new Blob([text],{type:mime}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},800);
+  }
+  document.getElementById('exportJsonBtn').onclick = async ()=>{
+    const url=getScriptUrl(); if(!url){alert('กรุณาใส่ Script URL');return;}
+    setSyncStatus('กำลังส่งออก JSON...','text-yellow-400');
+    const r=await fetch(`${url}?action=export&format=json`); const t=await r.text();
+    downloadBlob(`pos_snapshot_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`,'application/json;charset=utf-8',t);
+    setSyncStatus('Export JSON สำเร็จ','text-emerald-400');
+  };
+  document.getElementById('exportCsvBtn').onclick = async ()=>{
+    const url=getScriptUrl(); if(!url){alert('กรุณาใส่ Script URL');return;}
+    const type=document.getElementById('exportCsvType').value;
+    setSyncStatus(`กำลังส่งออก CSV (${type})...`,'text-yellow-400');
+    const r=await fetch(`${url}?action=export&format=csv&type=${encodeURIComponent(type)}`); const t=await r.text();
+    downloadBlob(`${type}_${new Date().toISOString().slice(0,10)}.csv`,'text/csv;charset=utf-8',t);
+    setSyncStatus('Export CSV สำเร็จ','text-emerald-400');
+  };
+  async function doImportJson(mode){
+    const url=getScriptUrl(); if(!url){alert('กรุณาใส่ Script URL');return;}
+    const input=document.getElementById('importJsonFile');
+    input.onchange = async ()=>{
+      const file=input.files[0]; if(!file) return;
+      try{
+        const text=await file.text(); const data=JSON.parse(text);
+        ['products','stores','customers','categories','buyTransactions','sellTransactions'].forEach(k=>{ if(!data[k]) data[k]=[]; });
+        setSyncStatus(`กำลังนำเข้า (${mode})...`,'text-yellow-400');
+        const r=await fetch(`${url}?action=import&mode=${encodeURIComponent(mode)}`,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)});
+        const t=await r.text(); let d; try{d=JSON.parse(t);}catch(_){d={ok:false,error:t};}
+        if (d.ok){
+          // reload snapshot
+          const r2=await fetch(`${url}?action=load`); const t2=await r2.text(); let d2; try{d2=JSON.parse(t2);}catch(_){d2={ok:false,error:t2};}
+          if (d2.ok){
+            products=d2.products||[]; stores=d2.stores||[]; customers=d2.customers||[]; categories=d2.categories||[];
+            buyTransactions=d2.buyTransactions||[]; sellTransactions=d2.sellTransactions||[];
+            saveAll(); initUI();
+          }
+          setSyncStatus('Import สำเร็จ','text-emerald-400'); alert('นำเข้าข้อมูลสำเร็จ');
+        }else{ setSyncStatus('Import ล้มเหลว: '+(d.error||'unknown'),'text-rose-400'); alert('Import ล้มเหลว: '+(d.error||'unknown')); }
+      }catch(e){ setSyncStatus('Import ล้มเหลว: '+e,'text-rose-400'); alert('Import ล้มเหลว: '+e); }
+      finally{ input.value=''; }
     };
+    input.click();
   }
-};
+  document.getElementById('importMergeBtn').onclick = ()=> doImportJson('merge');
+  document.getElementById('importReplaceBtn').onclick = ()=> { if(confirm('REPLACE จะลบข้อมูลเดิมทั้งหมดก่อนใส่ใหม่ แน่ใจไหม?')) doImportJson('replace'); };
 
-window.deleteTx = async (mode,id)=>{
-  if(!confirm('ลบรายการนี้?')) return;
-  if(mode==='buy'){ buyTransactions = buyTransactions.filter(t=>t.id!==id); }
-  else { sellTransactions = sellTransactions.filter(t=>t.id!==id); }
-  saveToStorage(); renderSummary(); const ok=await syncNow(mode+'-delete'); if(!ok) alert('Sync ผิดพลาด แต่ลบในเครื่องแล้ว');
-};
+  /* ====== Add/Delete Products ====== */
+  document.getElementById('addProductBtn').onclick = ()=> document.getElementById('productForm').classList.remove('hidden');
+  document.getElementById('cancelProductBtn').onclick = ()=> document.getElementById('productForm').classList.add('hidden');
+  document.getElementById('addProductForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const p = {
+      id: Date.now().toString(),
+      name: document.getElementById('productName').value.trim(),
+      category: document.getElementById('productCategory').value.trim(),
+      buyPrice: Number(document.getElementById('productBuyPrice').value)||0,
+      sellPrice: Number(document.getElementById('productSellPrice').value)||0,
+      hasVat: document.getElementById('productHasVat').checked
+    };
+    products.push(p); saveAll(); refreshProductsTable(); rebuildDatalist();
+    document.getElementById('productForm').classList.add('hidden'); e.target.reset();
+  };
+  window.deleteProduct = (id)=>{
+    if (!confirm('ลบสินค้านี้?')) return;
+    products = products.filter(p=> String(p.id)!==String(id));
+    saveAll(); refreshProductsTable(); rebuildDatalist();
+  };
 
-/* ------------------ PDF (Client — custom filters) ------------------ */
-function formatCurrency(n){return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(Number(n)||0);}
-$('#pdfFilter').addEventListener('change',(e)=>{
-  if(e.target.value==='actor'){ $('#actorSelectBox').classList.remove('hidden'); populateActorSelect(); }
-  else { $('#actorSelectBox').classList.add('hidden'); }
-});
-$('#sumMonth').addEventListener('change',()=>{ if(!$('#actorSelectBox').classList.contains('hidden')) populateActorSelect(); renderSummary(); });
-$('#sumMode').addEventListener('change',()=>{ if(!$('#actorSelectBox').classList.contains('hidden')) populateActorSelect(); renderSummary(); });
+  /* ====== Add Store / Customer / Category ====== */
+  document.getElementById('addStoreBtn').onclick = ()=>{ const n=prompt('ชื่อร้าน:'); if(n && !stores.includes(n)){ stores.push(n); saveAll(); refreshStores(); } };
+  document.getElementById('addCustomerBtn').onclick = ()=>{ const n=prompt('ชื่อลูกค้า:'); if(n && !customers.includes(n)){ customers.push(n); saveAll(); refreshCustomers(); } };
+  document.getElementById('addCategoryBtn').onclick = ()=>{ const n=prompt('ชื่อหมวดหมู่:'); if(n && !categories.includes(n)){ categories.push(n); saveAll(); refreshCategories(); } };
 
-function populateActorSelect(){
-  const month=$('#sumMonth').value;
-  const mode=$('#sumMode').value;
-  const {arrA}=aggForMonth(mode,month);
-  $('#actorSelect').innerHTML = `<option value="__ALL__">ทั้งหมด</option>` + arrA.map(a=>`<option>${a.actor}</option>`).join('');
-}
-
-$('#exportCustomPdf').onclick=()=>{
-  const month=$('#sumMonth').value;
-  const mode=$('#sumMode').value;
-  const filter=$('#pdfFilter').value;
-  const actorPick = (filter==='actor') ? $('#actorSelect').value : '__ALL__';
-
-  const { jsPDF } = window.jspdf; const doc = new jsPDF();
-  doc.setFont('helvetica');
-  const title = `รายงาน${mode==='buy'?'ซื้อ':'ขาย'} — ${month} (${filter}${actorPick!=='__ALL__'?' : '+actorPick:''})`;
-  doc.setFontSize(16); doc.text(title, 14, 16); doc.setFontSize(11);
-
-  const {arrP,arrC,arrA,totalQty,totalAmt,items} = aggForMonth(mode,month);
-  const itemsFiltered = (filter==='actor' && actorPick!=='__ALL__') ? items.filter(i=> i._actor===actorPick ) : items;
-
-  const addTable=(head, body)=>doc.autoTable({ startY: doc.lastAutoTable? doc.lastAutoTable.finalY+8 : 22, head:[head], body });
-
-  if(filter==='all'){
-    addTable(['สินค้า','หมวดหมู่','จำนวน','ยอดรวม'], arrP.map(r=>[r.productName,r.category,r.qty.toLocaleString('th-TH'), formatCurrency(r.amount)]));
-  }else if(filter==='actor'){
-    const rows = (actorPick==='__ALL__' ? arrA : [{actor:actorPick, amount: itemsFiltered.reduce((s,i)=>s+i.total,0)}])
-               .map(r=>[r.actor, formatCurrency(r.amount)]);
-    addTable([mode==='buy'?'ร้าน':'ลูกค้า','ยอดรวม'], rows);
-    if(actorPick!=='__ALL__'){
-      const byP=new Map(); itemsFiltered.forEach(i=>{
-        const k=i.productName;
-        if(!byP.has(k)) byP.set(k,{name:k,cat:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ',qty:0,amt:0});
-        const x=byP.get(k); x.qty+=i.quantity; x.amt+=i.total;
-      });
-      const rows2=[...byP.values()].sort((a,b)=>b.amt-a.amt).map(x=>[x.name,x.cat,x.qty.toLocaleString('th-TH'),formatCurrency(x.amt)]);
-      addTable(['สินค้า','หมวดหมู่','จำนวน','ยอดรวม'], rows2);
-    }
-  }else if(filter==='category'){
-    addTable(['หมวดหมู่','จำนวน','ยอดรวม'], arrC.map(r=>[r.category, r.qty.toLocaleString('th-TH'), formatCurrency(r.amount)]));
-  }else if(filter==='vat'){
-    const vatItems=itemsFiltered.filter(i=>i.hasVat);
-    const byP=new Map(); vatItems.forEach(i=>{
-      const k=i.productName;
-      if(!byP.has(k)) byP.set(k,{name:k,cat:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ',qty:0,amt:0});
-      const x=byP.get(k); x.qty+=i.quantity; x.amt+=i.total;
-    });
-    const rows=[...byP.values()].sort((a,b)=>b.amt-a.amt).map(x=>[x.name,x.cat,x.qty.toLocaleString('th-TH'),formatCurrency(x.amt)]);
-    addTable(['สินค้า (VAT)','หมวดหมู่','จำนวน','ยอดรวม'], rows);
+  /* ====== INIT ====== */
+  function initUI(){
+    document.getElementById('buyDate').value = todayISO();
+    document.getElementById('sellDate').value = todayISO();
+    const now=new Date(); document.getElementById('reportMonth').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    refreshStores(); refreshCustomers(); refreshCategories(); refreshProductsTable(); rebuildDatalist();
+    document.getElementById('buyItems').innerHTML=''; document.getElementById('sellItems').innerHTML='';
+    makeRow('buyItems','buy'); makeRow('sellItems','sell');
   }
 
-  doc.autoTable({ startY: doc.lastAutoTable? doc.lastAutoTable.finalY+8 : 22,
-    head:[['รวมทั้งเดือน','จำนวนรวม','ยอดรวม']],
-    body:[[mode==='buy'?'ซื้อ':'ขาย', totalQty.toLocaleString('th-TH'), formatCurrency(totalAmt)]] });
+  document.getElementById('loadFromSheetsBtn').onclick = async ()=>{
+    const url=getScriptUrl(); if(!url) return alert('กรุณาใส่ Script URL'); rememberScriptUrl();
+    setSyncStatus('กำลังโหลดจากชีต...','text-yellow-400');
+    try{
+      const r=await fetch(`${url}?action=load`); const t=await r.text(); let d; try{d=JSON.parse(t);}catch(_){d={ok:false,error:t};}
+      if (d.ok){
+        products=d.products||[]; stores=d.stores||[]; customers=d.customers||[]; categories=d.categories||[];
+        buyTransactions=d.buyTransactions||[]; sellTransactions=d.sellTransactions||[];
+        saveAll(); initUI(); setSyncStatus('โหลดสำเร็จ','text-emerald-400');
+      }else setSyncStatus('โหลดไม่สำเร็จ: '+(d.error||'unknown'),'text-rose-400');
+    }catch(e){ setSyncStatus('โหลดไม่สำเร็จ: '+e,'text-rose-400');}
+  };
 
-  doc.save(`รายงาน_${mode==='buy'?'ซื้อ':'ขาย'}_${month}_${filter}${actorPick!=='__ALL__'?'_'+actorPick:''}.pdf`);
-};
-
-/* ------------------ PDF (Server — 3 หน้า) ------------------ */
-$('#generateServerPDF').onclick=$('#exportServerPdf').onclick=async ()=>{
-  const u=getScriptUrl(); if(!u) return alert('ใส่ Script URL');
-  const month = ($('#reportMonth')?.value) || ($('#sumMonth')?.value) || new Date().toISOString().slice(0,7);
-  setSyncStatus('กำลังสร้าง PDF เซิร์ฟเวอร์...','text-yellow-400');
-  const r=await httpJson(`${u}?action=pdf&month=${month}`,{method:'GET'});
-  if(r?.ok && r.url){ window.open(r.url,'_blank'); setSyncStatus('สร้าง PDF แล้ว เปิดดูได้เลย','text-emerald-400'); }
-  else setSyncStatus('สร้าง PDF ไม่สำเร็จ: '+(r?.error||'unknown'),'text-rose-400');
-};
-
-/* ------------------ Build Initial UI ------------------ */
-function refreshAllUI(){
-  refreshStoreCustomer();
-  refreshCategories();
-  refreshProductTable();
-  refreshProductDatalist();
-  $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy');
-  $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell');
-  const now=new Date(); $('#sumMonth').value = now.toISOString().slice(0,7);
-}
-
-refreshAllUI();
-renderSummary();
-</script>
+  hookRowEvents();
+  initUI();
+  </script>
 </body>
 </html>
