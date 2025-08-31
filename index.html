@@ -29,11 +29,18 @@
       <h1 class="text-3xl font-bold">🏪 Plug2Plug POS</h1>
       <p class="text-slate-300">บันทึกซื้อ/ขาย • สรุปรายเดือน • ส่งออก PDF • Sync Google Sheets</p>
     </div>
-    <div class="flex gap-2 items-center">
+    <div class="flex flex-wrap gap-2 items-center">
       <input id="scriptUrl" type="url" placeholder="วาง Google Apps Script Web App URL (/exec)" class="field w-80" />
       <button id="setupBtn" class="btn bg-blue-600 hover:bg-blue-500">⚙️ ตั้งค่า</button>
       <button id="loadBtn" class="btn bg-emerald-600 hover:bg-emerald-500">📥 โหลด</button>
       <button id="syncBtn" class="btn bg-purple-600 hover:bg-purple-500">📊 Sync</button>
+
+      <!-- NEW: Import / Export fast -->
+      <button id="exportBtn" class="btn bg-sky-700">⬇️ Export JSON</button>
+      <label class="btn bg-amber-700 cursor-pointer">
+        ⬆️ Import JSON
+        <input id="importInput" type="file" accept="application/json" class="hidden"/>
+      </label>
     </div>
   </div>
   <div id="syncStatus" class="text-sm text-sky-300 mb-6">พร้อม</div>
@@ -69,7 +76,6 @@
       </div>
 
       <datalist id="productDatalist"></datalist>
-
       <div id="buyItems" class="space-y-2"></div>
 
       <div class="flex justify-end gap-2 mt-4">
@@ -158,7 +164,7 @@
   <div id="summary" class="tabpane hidden">
     <div class="card p-4 mb-4">
       <h2 class="text-xl font-semibold mb-3">📊 สรุปตามเดือน</h2>
-      <div class="grid md:grid-cols-4 gap-3 mb-4">
+      <div class="grid md:grid-cols-5 gap-3 mb-4">
         <div>
           <label class="text-sm text-slate-300">เดือน</label>
           <input id="sumMonth" type="month" class="field w-full"/>
@@ -182,6 +188,9 @@
         <div id="actorSelectBox" class="hidden">
           <label class="text-sm text-slate-300">เลือกร้าน/ลูกค้า</label>
           <select id="actorSelect" class="field w-full"><option value="__ALL__">ทั้งหมด</option></select>
+        </div>
+        <div class="flex items-end">
+          <button id="exportCustomPdf" class="btn bg-red-600 w-full">📄 ส่งออก PDF (ตัวเลือกด้านบน)</button>
         </div>
       </div>
 
@@ -218,8 +227,7 @@
       <div class="flex justify-between items-center mt-4">
         <div class="text-xs text-slate-400">ประวัติรายการเดือนนี้</div>
         <div class="flex gap-2">
-          <button id="exportCustomPdf" class="btn bg-red-600">📄 ส่งออก PDF (ตามตัวเลือก)</button>
-          <button id="exportServerPdf" class="btn bg-orange-600">☁️ PDF 3 หน้า (จาก Apps Script)</button>
+          <button id="exportServerPdf" class="btn bg-orange-600">☁️ PDF 3 หน้า (Apps Script)</button>
         </div>
       </div>
 
@@ -251,16 +259,36 @@
   <div id="reports" class="tabpane hidden">
     <div class="card p-4">
       <h2 class="text-xl font-semibold mb-3">📄 รายงาน (Apps Script)</h2>
-      <div class="grid md:grid-cols-3 gap-3">
+      <div class="grid md:grid-cols-4 gap-3">
         <div>
           <label class="text-sm text-slate-300">เดือน</label>
           <input id="reportMonth" type="month" class="field w-full"/>
         </div>
-        <div class="flex items-end">
-          <button id="generateServerPDF" class="btn bg-red-600">สร้าง PDF 3 หน้า</button>
+        <div>
+          <label class="text-sm text-slate-300">โหมด</label>
+          <select id="reportMode" class="field w-full">
+            <option value="buy">ซื้อ</option>
+            <option value="sell">ขาย</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-300">ฟิลเตอร์</label>
+          <select id="reportFilter" class="field w-full">
+            <option value="all">ทั้งหมด</option>
+            <option value="actor">ตามร้าน/ลูกค้า</option>
+            <option value="category">ตามหมวดหมู่</option>
+            <option value="vat">เฉพาะรายการ VAT</option>
+          </select>
+        </div>
+        <div id="reportActorBox" class="hidden">
+          <label class="text-sm text-slate-300">เลือกร้าน/ลูกค้า</label>
+          <input id="reportActor" class="field w-full" placeholder="พิมพ์ชื่อให้ตรง หรือเว้นว่าง=ทั้งหมด"/>
         </div>
       </div>
-      <div class="text-xs text-slate-400 mt-2">ไฟล์จะไปเก็บในโฟลเดอร์ <span class="chip">POS_Monthly_Reports</span> ใน Google Drive</div>
+      <div class="flex items-end gap-2 mt-3">
+        <button id="generateServerPDF" class="btn bg-red-600">สร้าง PDF 3 หน้า (ตามตัวเลือก)</button>
+        <div class="text-xs text-slate-400">ไฟล์อยู่ในโฟลเดอร์ <span class="chip">POS_Monthly_Reports</span> บน Google Drive</div>
+      </div>
     </div>
   </div>
 </div>
@@ -614,7 +642,7 @@ async function syncNow(reason='auto'){
 }
 
 /* ------------------ Summary & History ------------------ */
-function aggForMonth(mode, month){ // returns aggregations
+function aggForMonth(mode, month){
   const source = (mode==='buy') ? buyTransactions : sellTransactions;
   const arr = source.filter(t=> monthKeyFromDate(t.date)===month);
   const items = arr.flatMap(t=> t.items.map(i=>({...i, _actor: mode==='buy'? t.store : t.customer})));
@@ -658,10 +686,9 @@ function renderSummary(){
   $('#sumMonth').value = month;
   const mode = $('#sumMode').value;
 
-  // profit (ขาย-ซื้อ) เดือนเดียวกัน
   const b = aggForMonth('buy', month), s = aggForMonth('sell', month);
-
   const cur = (mode==='buy') ? b : s;
+
   $('#sumTotalQty').textContent = cur.totalQty.toLocaleString('th-TH');
   $('#sumTotalAmt').textContent = thb(cur.totalAmt);
   $('#sumVatAmt').textContent = thb(cur.vatAmt);
@@ -698,11 +725,10 @@ function renderSummary(){
   $('#sellHistory').innerHTML = sellRows || `<tr><td colspan="4" class="p-2 text-center text-slate-500">ไม่มีรายการ</td></tr>`;
 }
 
-/* load tx to form for edit */
+/* edit from history */
 window.loadTxToForm = (mode,id)=>{
   const arr = mode==='buy'? buyTransactions : sellTransactions;
   const tx = arr.find(t=>t.id===id); if(!tx) return;
-  // go to tab
   $$('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector(`.tab-btn[data-tab="${mode}"]`).classList.add('active');
   $$('.tabpane').forEach(p=>p.classList.add('hidden'));
@@ -719,7 +745,6 @@ window.loadTxToForm = (mode,id)=>{
       qty.value = it.quantity; price.value = it.price;
       div.querySelector('.total').textContent = 'รวม: '+thb(it.total);
     });
-    // replace on save
     $('#buySubmitBtn').onclick=async ()=>{
       if(submitLocks.buy) return;
       const date = toISODateClient($('#buyDate').value);
@@ -793,13 +818,13 @@ function populateActorSelect(){
 }
 
 $('#exportCustomPdf').onclick=()=>{
+  const { jsPDF } = window.jspdf; const doc = new jsPDF();
+  doc.setFont('helvetica'); // สำหรับ client side (ถ้าต้องไทยล้วน แนะนำใช้ PDF เซิร์ฟเวอร์)
   const month=$('#sumMonth').value;
   const mode=$('#sumMode').value;
   const filter=$('#pdfFilter').value;
   const actorPick = (filter==='actor') ? $('#actorSelect').value : '__ALL__';
 
-  const { jsPDF } = window.jspdf; const doc = new jsPDF();
-  doc.setFont('helvetica');
   const title = `รายงาน${mode==='buy'?'ซื้อ':'ขาย'} — ${month} (${filter}${actorPick!=='__ALL__'?' : '+actorPick:''})`;
   doc.setFontSize(16); doc.text(title, 14, 16); doc.setFontSize(11);
 
@@ -843,15 +868,65 @@ $('#exportCustomPdf').onclick=()=>{
   doc.save(`รายงาน_${mode==='buy'?'ซื้อ':'ขาย'}_${month}_${filter}${actorPick!=='__ALL__'?'_'+actorPick:''}.pdf`);
 };
 
-/* ------------------ PDF (Server — 3 หน้า) ------------------ */
+/* ------------------ PDF (Server — 3 หน้า + ตัวเลือก) ------------------ */
 $('#generateServerPDF').onclick=$('#exportServerPdf').onclick=async ()=>{
   const u=getScriptUrl(); if(!u) return alert('ใส่ Script URL');
   const month = ($('#reportMonth')?.value) || ($('#sumMonth')?.value) || new Date().toISOString().slice(0,7);
+  const mode = ($('#reportMode')?.value) || ($('#sumMode')?.value) || 'buy';
+  const filter = ($('#reportFilter')?.value) || ($('#pdfFilter')?.value) || 'all';
+  const actor = ($('#reportActor')?.value || '').trim();
+  const params = new URLSearchParams({ action:'pdfx', month, mode, filter, actor });
   setSyncStatus('กำลังสร้าง PDF เซิร์ฟเวอร์...','text-yellow-400');
-  const r=await httpJson(`${u}?action=pdf&month=${month}`,{method:'GET'});
+  const r=await httpJson(`${u}?${params.toString()}`,{method:'GET'});
   if(r?.ok && r.url){ window.open(r.url,'_blank'); setSyncStatus('สร้าง PDF แล้ว เปิดดูได้เลย','text-emerald-400'); }
   else setSyncStatus('สร้าง PDF ไม่สำเร็จ: '+(r?.error||'unknown'),'text-rose-400');
 };
+
+/* ------------------ Filter UI binding (Reports tab) ------------------ */
+$('#reportFilter')?.addEventListener('change', e=>{
+  if(e.target.value==='actor') $('#reportActorBox').classList.remove('hidden');
+  else $('#reportActorBox').classList.add('hidden');
+});
+
+/* ------------------ Export / Import JSON ------------------ */
+function snapshot(){
+  return {
+    products, stores, customers, categories,
+    buyTransactions, sellTransactions,
+    exportedAt: new Date().toISOString()
+  };
+}
+$('#exportBtn').onclick=()=>{
+  const data = JSON.stringify(snapshot(), null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Plug2PlugPOS_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+$('#importInput').addEventListener('change', async (e)=>{
+  const f = e.target.files?.[0]; if(!f) return;
+  try{
+    const text = await f.text();
+    const data = JSON.parse(text);
+    if(!data) return alert('ไฟล์ไม่ถูกต้อง');
+    // basic assign + hygiene
+    products = (data.products||[]).map(p=>({...p, id:String(p.id||uid('p_'))}));
+    stores = Array.from(new Set(data.stores||[]));
+    customers = Array.from(new Set((data.customers||[]).concat(['ลูกค้าทั่วไป'])));
+    categories = Array.from(new Set(data.categories||[]));
+    buyTransactions = (data.buyTransactions||[]);
+    sellTransactions = (data.sellTransactions||[]);
+    saveToStorage(); refreshAllUI(); renderSummary();
+    // push to Sheets ทันที (เร็ว)
+    const ok = await syncNow('import'); if(!ok) alert('Sync ไปชีตไม่สำเร็จ แต่ข้อมูลลงเครื่องแล้ว');
+  }catch(err){
+    alert('อ่านไฟล์ไม่สำเร็จ: '+err);
+  }finally{
+    e.target.value='';
+  }
+});
 
 /* ------------------ Build Initial UI ------------------ */
 function refreshAllUI(){
@@ -863,7 +938,6 @@ function refreshAllUI(){
   $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell');
   const now=new Date(); $('#sumMonth').value = now.toISOString().slice(0,7);
 }
-
 refreshAllUI();
 renderSummary();
 </script>
