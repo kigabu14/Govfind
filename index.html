@@ -16,14 +16,11 @@
     .table-wrap{overflow:auto;max-height:360px}
     .chip{border:1px solid #475569;border-radius:999px;padding:.2rem .6rem;font-size:.75rem}
     .tab-btn.active{border-bottom:2px solid #60a5fa;color:#60a5fa}
-    .ghost{opacity:.4}
-    .mono{font-family: "Sarabun",ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
   </style>
 </head>
 <body class="min-h-screen">
 <div class="max-w-7xl mx-auto p-4 md:p-8">
 
-  <!-- Header / Controls -->
   <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
     <div>
       <h1 class="text-3xl font-bold">🏪 Plug2Plug POS</h1>
@@ -38,7 +35,6 @@
   </div>
   <div id="syncStatus" class="text-sm text-sky-300 mb-6">พร้อม</div>
 
-  <!-- Tabs -->
   <div class="flex gap-4 border-b border-slate-700 mb-4">
     <button class="tab-btn pb-2 active" data-tab="buy">🛒 ซื้อ</button>
     <button class="tab-btn pb-2" data-tab="sell">💰 ขาย</button>
@@ -69,14 +65,13 @@
       </div>
 
       <datalist id="productDatalist"></datalist>
-
       <div id="buyItems" class="space-y-2"></div>
 
       <div class="flex justify-end gap-2 mt-4">
         <button id="buyResetBtn" class="btn bg-slate-600">เคลียร์</button>
         <button id="buySubmitBtn" class="btn bg-white text-black">บันทึกการซื้อ</button>
       </div>
-      <div id="buyHint" class="text-xs text-slate-400 mt-2">
+      <div class="text-xs text-slate-400 mt-2">
         พิมพ์ชื่อสินค้าในช่อง “สินค้า” เพื่อค้นหาและเลือก — ระบบจะ Autofill ราคา “ซื้อ”
       </div>
     </div>
@@ -218,8 +213,8 @@
       <div class="flex justify-between items-center mt-4">
         <div class="text-xs text-slate-400">ประวัติรายการเดือนนี้</div>
         <div class="flex gap-2">
-          <button id="exportCustomPdf" class="btn bg-red-600">📄 ส่งออก PDF (ตามตัวเลือก)</button>
-          <button id="exportServerPdf" class="btn bg-orange-600">☁️ PDF 3 หน้า (จาก Apps Script)</button>
+          <button id="exportCustomPdf" class="btn bg-red-600">📄 ส่งออก PDF (ตามตัวเลือก — ฝั่งเบราว์เซอร์)</button>
+          <button id="exportServerPdf" class="btn bg-orange-600">☁️ PDF (จาก Apps Script)</button>
         </div>
       </div>
 
@@ -285,11 +280,7 @@ function saveToStorage(){
   localStorage.setItem('buyTransactions', JSON.stringify(buyTransactions));
   localStorage.setItem('sellTransactions', JSON.stringify(sellTransactions));
 }
-
-function uid(prefix=''){
-  return prefix + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
-}
-
+function uid(prefix=''){ return prefix + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4); }
 function toISODateClient(v){
   if(!v) return '';
   if (v instanceof Date) return v.toISOString().slice(0,10);
@@ -301,7 +292,6 @@ function toISODateClient(v){
   return s;
 }
 function monthKeyFromDate(v){ const iso=toISODateClient(v); return (iso && iso.length>=7) ? iso.slice(0,7) : ''; }
-
 function thb(n){ return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(Number(n)||0); }
 
 /* ------------------ Tabs ------------------ */
@@ -329,17 +319,12 @@ $('#buyDate').value = toISODateClient(new Date());
 $('#sellDate').value = toISODateClient(new Date());
 
 function refreshStoreCustomer(){
-  const buyStore = $('#buyStore');
-  buyStore.innerHTML = stores.map(s=>`<option value="${s}">${s}</option>`).join('');
-  const sellCustomer = $('#sellCustomer');
-  sellCustomer.innerHTML = customers.map(c=>`<option value="${c}">${c}</option>`).join('');
+  $('#buyStore').innerHTML = stores.map(s=>`<option value="${s}">${s}</option>`).join('');
+  $('#sellCustomer').innerHTML = customers.map(c=>`<option value="${c}">${c}</option>`).join('');
 }
-
 function refreshCategories(){
-  const sel = $('#productCategory');
-  sel.innerHTML = `<option value="">เลือกหมวดหมู่</option>` + categories.map(c=>`<option>${c}</option>`).join('');
+  $('#productCategory').innerHTML = `<option value="">เลือกหมวดหมู่</option>` + categories.map(c=>`<option>${c}</option>`).join('');
 }
-
 function refreshProductTable(){
   const tb = $('#productsTable');
   if(!products.length){ tb.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-slate-400">ยังไม่มีสินค้า</td></tr>`; return; }
@@ -359,21 +344,13 @@ function refreshProductTable(){
   `).join('');
   refreshProductDatalist();
 }
-
-function refreshProductDatalist(){
-  const dl = $('#productDatalist');
-  dl.innerHTML = products.map(p=>`<option value="${p.name}"></option>`).join('');
-}
+function refreshProductDatalist(){ $('#productDatalist').innerHTML = products.map(p=>`<option value="${p.name}"></option>`).join(''); }
 
 /* ------------------ Product CRUD ------------------ */
 let editingProductId = null;
 $('#addProductBtn').onclick=()=>{ $('#productForm').classList.remove('hidden'); editingProductId=null; $('#productName').value=''; $('#productCategory').value=''; $('#productBuyPrice').value=''; $('#productSellPrice').value=''; $('#productHasVat').checked=false; };
 $('#cancelProductBtn').onclick=()=>{ $('#productForm').classList.add('hidden'); };
-
-$('#addCategoryBtn').onclick=()=>{
-  const name=prompt('ชื่อหมวดหมู่ใหม่:'); if(name && !categories.includes(name)){ categories.push(name); saveToStorage(); refreshCategories(); }
-};
-
+$('#addCategoryBtn').onclick=()=>{ const name=prompt('ชื่อหมวดหมู่ใหม่:'); if(name && !categories.includes(name)){ categories.push(name); saveToStorage(); refreshCategories(); } };
 function editProduct(id){
   const p=products.find(x=>x.id===id); if(!p) return;
   $('#productForm').classList.remove('hidden');
@@ -384,13 +361,11 @@ function editProduct(id){
   $('#productSellPrice').value=p.sellPrice||0;
   $('#productHasVat').checked=!!p.hasVat;
 }
-
 function deleteProduct(id){
   if(!confirm('ลบสินค้านี้?')) return;
   products = products.filter(p=>p.id!==id);
   saveToStorage(); refreshProductTable();
 }
-
 $('#saveProductBtn').onclick=()=>{
   const name=$('#productName').value.trim();
   const category=$('#productCategory').value.trim();
@@ -412,7 +387,7 @@ $('#addStoreBtn').onclick=()=>{ const s=prompt('ชื่อร้าน:'); if(
 $('#addCustomerBtn').onclick=()=>{ const c=prompt('ชื่อลูกค้า:'); if(c && !customers.includes(c)){ customers.push(c); saveToStorage(); refreshStoreCustomer(); } };
 
 /* ------------------ Item Rows (Buy/Sell) ------------------ */
-function makeItemRow(mode/* buy|sell */){
+function makeItemRow(mode){
   const wrap = document.createElement('div');
   wrap.className='card p-3';
   wrap.innerHTML=`
@@ -441,7 +416,6 @@ function makeItemRow(mode/* buy|sell */){
   const totalSpan = wrap.querySelector('.total');
 
   function recalc(){ const t=(Number(qtyInput.value||0)*Number(priceInput.value||0)); totalSpan.textContent='รวม: '+thb(t); }
-
   nameInput.addEventListener('input', ()=>{
     const p = products.find(x=> x.name.toLowerCase() === nameInput.value.trim().toLowerCase());
     if(p){
@@ -457,7 +431,6 @@ function makeItemRow(mode/* buy|sell */){
   wrap.querySelector('.remove').onclick=()=>{ const parent=wrap.parentElement; if(parent.children.length>1) wrap.remove(); else alert('ต้องมีอย่างน้อย 1 รายการ'); };
   return wrap;
 }
-
 function ensureOneRow(containerId, mode){
   const c = $('#'+containerId);
   if(!c.children.length) c.appendChild(makeItemRow(mode));
@@ -494,9 +467,9 @@ $('#buySubmitBtn').onclick=async ()=>{
   lastHash.buy = h; submitLocks.buy=true; $('#buySubmitBtn').disabled=true;
 
   buyTransactions.push(tx); saveToStorage();
-  const ok = await syncNow('buy-save'); // sync ทุกครั้งที่บันทึก
+  const ok = await syncNow('buy-save');
   submitLocks.buy=false; $('#buySubmitBtn').disabled=false;
-  if(ok) { alert('บันทึกการซื้อเรียบร้อย'); $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy'); }
+  if(ok) { alert('บันทึกการซื้อเรียบร้อย'); $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy'); renderSummary(); }
 };
 
 /* ------------------ SELL Submit ------------------ */
@@ -527,7 +500,7 @@ $('#sellSubmitBtn').onclick=async ()=>{
   sellTransactions.push(tx); saveToStorage();
   const ok = await syncNow('sell-save');
   submitLocks.sell=false; $('#sellSubmitBtn').disabled=false;
-  if(ok) { alert('บันทึกการขายเรียบร้อย'); $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell'); }
+  if(ok) { alert('บันทึกการขายเรียบร้อย'); $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell'); renderSummary(); }
 };
 
 /* ------------------ LOAD / SETUP / SYNC ------------------ */
@@ -540,8 +513,6 @@ async function postPlainJson(url, payload){
   const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
   const txt = await res.text(); try{ return JSON.parse(txt); }catch(_){ return { ok:false, error: txt }; }
 }
-async function ping(url){ return fetch(url+'?action=setup',{method:'GET'}).then(()=>true).catch(()=>false); }
-
 function dedupAndSanitizeTx(arr){
   const map=new Map();
   (arr||[]).forEach(t=>{
@@ -570,16 +541,15 @@ function replaceStateFromServer(d){
 }
 
 $('#setupBtn').onclick=async ()=>{
-  const u=getScriptUrl(); if(!u) return alert('กรุณาใส่ Script URL');
-  rememberScriptUrl();
+  const u=getScriptUrl(); if(!u) return alert('กรุณาใส่ Script URL (/exec)');
+  localStorage.setItem('scriptUrl', u);
   setSyncStatus('กำลังตั้งค่า...','text-yellow-400');
   const r=await httpJson(u+'?action=setup');
   if(r?.ok){ setSyncStatus('ตั้งค่าสำเร็จ','text-emerald-400'); } else { setSyncStatus('ผิดพลาด: '+(r?.error||'unknown'),'text-rose-400');}
 };
-
 $('#loadBtn').onclick=async ()=>{
   const u=getScriptUrl(); if(!u) return alert('กรุณาใส่ Script URL');
-  rememberScriptUrl();
+  localStorage.setItem('scriptUrl', u);
   setSyncStatus('กำลังโหลด...','text-yellow-400');
   try{
     const d = await httpJson(u+'?action=load',{method:'GET'});
@@ -594,12 +564,11 @@ $('#loadBtn').onclick=async ()=>{
     setSyncStatus('โหลดไม่สำเร็จ: '+e,'text-rose-400');
   }
 };
-
 $('#syncBtn').onclick=()=>syncNow('manual');
 
 async function syncNow(reason='auto'){
   const u=getScriptUrl(); if(!u){ setSyncStatus('ยังไม่ได้ใส่ URL','text-rose-400'); return false; }
-  rememberScriptUrl();
+  localStorage.setItem('scriptUrl', u);
   setSyncStatus(`กำลังส่งข้อมูล (${reason})...`,'text-yellow-400');
 
   prepareSnapshot();
@@ -614,7 +583,7 @@ async function syncNow(reason='auto'){
 }
 
 /* ------------------ Summary & History ------------------ */
-function aggForMonth(mode, month){ // returns aggregations
+function aggForMonth(mode, month){
   const source = (mode==='buy') ? buyTransactions : sellTransactions;
   const arr = source.filter(t=> monthKeyFromDate(t.date)===month);
   const items = arr.flatMap(t=> t.items.map(i=>({...i, _actor: mode==='buy'? t.store : t.customer})));
@@ -658,9 +627,7 @@ function renderSummary(){
   $('#sumMonth').value = month;
   const mode = $('#sumMode').value;
 
-  // profit (ขาย-ซื้อ) เดือนเดียวกัน
   const b = aggForMonth('buy', month), s = aggForMonth('sell', month);
-
   const cur = (mode==='buy') ? b : s;
   $('#sumTotalQty').textContent = cur.totalQty.toLocaleString('th-TH');
   $('#sumTotalAmt').textContent = thb(cur.totalAmt);
@@ -674,7 +641,6 @@ function renderSummary(){
   $('#sumByCategory').innerHTML = cur.arrC.map(x=>`<tr><td class="p-1">${x.category}</td><td class="p-1">${x.qty.toLocaleString('th-TH')}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('') || `<tr><td colspan="3" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
   $('#sumByActor').innerHTML = cur.arrA.map(x=>`<tr><td class="p-1">${x.actor}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('') || `<tr><td colspan="2" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
 
-  // History
   const buyRows = buyTransactions.filter(t=>monthKeyFromDate(t.date)===month).map(t=>`
     <tr class="border-b border-slate-700">
       <td class="p-2">${t.date}</td><td class="p-2">${t.store||'-'}</td><td class="p-2">${thb(t.total)}</td>
@@ -702,7 +668,6 @@ function renderSummary(){
 window.loadTxToForm = (mode,id)=>{
   const arr = mode==='buy'? buyTransactions : sellTransactions;
   const tx = arr.find(t=>t.id===id); if(!tx) return;
-  // go to tab
   $$('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector(`.tab-btn[data-tab="${mode}"]`).classList.add('active');
   $$('.tabpane').forEach(p=>p.classList.add('hidden'));
@@ -719,7 +684,6 @@ window.loadTxToForm = (mode,id)=>{
       qty.value = it.quantity; price.value = it.price;
       div.querySelector('.total').textContent = 'รวม: '+thb(it.total);
     });
-    // replace on save
     $('#buySubmitBtn').onclick=async ()=>{
       if(submitLocks.buy) return;
       const date = toISODateClient($('#buyDate').value);
@@ -736,6 +700,7 @@ window.loadTxToForm = (mode,id)=>{
       const total = items.reduce((s,i)=>s+i.total,0);
       Object.assign(tx,{date,store,items,total});
       saveToStorage(); const ok=await syncNow('buy-edit'); if(ok) alert('แก้ไขเรียบร้อย');
+      renderSummary();
     };
   }else{
     $('#sellDate').value = toISODateClient(tx.date);
@@ -765,10 +730,10 @@ window.loadTxToForm = (mode,id)=>{
       const total = items.reduce((s,i)=>s+i.total,0);
       Object.assign(tx,{date,customer,items,total});
       saveToStorage(); const ok=await syncNow('sell-edit'); if(ok) alert('แก้ไขเรียบร้อย');
+      renderSummary();
     };
   }
 };
-
 window.deleteTx = async (mode,id)=>{
   if(!confirm('ลบรายการนี้?')) return;
   if(mode==='buy'){ buyTransactions = buyTransactions.filter(t=>t.id!==id); }
@@ -791,7 +756,6 @@ function populateActorSelect(){
   const {arrA}=aggForMonth(mode,month);
   $('#actorSelect').innerHTML = `<option value="__ALL__">ทั้งหมด</option>` + arrA.map(a=>`<option>${a.actor}</option>`).join('');
 }
-
 $('#exportCustomPdf').onclick=()=>{
   const month=$('#sumMonth').value;
   const mode=$('#sumMode').value;
@@ -843,12 +807,18 @@ $('#exportCustomPdf').onclick=()=>{
   doc.save(`รายงาน_${mode==='buy'?'ซื้อ':'ขาย'}_${month}_${filter}${actorPick!=='__ALL__'?'_'+actorPick:''}.pdf`);
 };
 
-/* ------------------ PDF (Server — 3 หน้า) ------------------ */
+/* ------------------ PDF (Server — ใช้ pdfx) ------------------ */
 $('#generateServerPDF').onclick=$('#exportServerPdf').onclick=async ()=>{
-  const u=getScriptUrl(); if(!u) return alert('ใส่ Script URL');
+  const u=getScriptUrl(); if(!u) return alert('ใส่ Script URL (/exec)');
   const month = ($('#reportMonth')?.value) || ($('#sumMonth')?.value) || new Date().toISOString().slice(0,7);
+  const mode   = ($('#sumMode')?.value) || 'buy';
+  const filter = ($('#pdfFilter')?.value) || 'all';
+  const actor  = (filter==='actor') ? (($('#actorSelect')?.value)||'') : '';
+
   setSyncStatus('กำลังสร้าง PDF เซิร์ฟเวอร์...','text-yellow-400');
-  const r=await httpJson(`${u}?action=pdf&month=${month}`,{method:'GET'});
+  const q = new URLSearchParams({ action:'pdfx', month, mode, filter, actor });
+  const r = await httpJson(`${u}?${q.toString()}`, { method:'GET' });
+
   if(r?.ok && r.url){ window.open(r.url,'_blank'); setSyncStatus('สร้าง PDF แล้ว เปิดดูได้เลย','text-emerald-400'); }
   else setSyncStatus('สร้าง PDF ไม่สำเร็จ: '+(r?.error||'unknown'),'text-rose-400');
 };
@@ -863,7 +833,6 @@ function refreshAllUI(){
   $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell');
   const now=new Date(); $('#sumMonth').value = now.toISOString().slice(0,7);
 }
-
 refreshAllUI();
 renderSummary();
 </script>
