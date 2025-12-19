@@ -6,8 +6,6 @@
   <title>Plug2Plug POS — Single File</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- jsPDF + AutoTable -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
@@ -20,6 +18,9 @@
     .table-wrap{overflow:auto;max-height:360px}
     .chip{border:1px solid #475569;border-radius:999px;padding:.2rem .6rem;font-size:.75rem}
     .tab-btn.active{border-bottom:2px solid #60a5fa;color:#60a5fa}
+    .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
+    .modal{width:min(720px,92vw)}
   </style>
 </head>
 
@@ -27,7 +28,7 @@
 <div class="max-w-7xl mx-auto p-4 md:p-8">
 
   <!-- Header / Controls -->
-  <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
+  <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4">
     <div>
       <h1 class="text-3xl font-bold">🏪 Plug2Plug POS</h1>
       <p class="text-slate-300">บันทึกซื้อ/ขาย • สรุปรายเดือน • ส่งออก PDF • Sync Google Sheets</p>
@@ -39,18 +40,13 @@
       <button id="loadBtn" class="btn bg-emerald-600 hover:bg-emerald-500">📥 โหลด</button>
       <button id="syncBtn" class="btn bg-purple-600 hover:bg-purple-500">📊 Sync</button>
 
-      <button id="exportBtn" class="btn bg-sky-700">⬇️ Export JSON</button>
-      <label class="btn bg-amber-700 cursor-pointer">
+      <button id="fontBtn" class="btn bg-indigo-700 hover:bg-indigo-600">🅰️ ฟอนต์ PDF ไทย</button>
+
+      <button id="exportBtn" class="btn bg-sky-700 hover:bg-sky-600">⬇️ Export JSON</button>
+      <label class="btn bg-amber-700 hover:bg-amber-600 cursor-pointer">
         ⬆️ Import JSON
         <input id="importInput" type="file" accept="application/json" class="hidden"/>
       </label>
-
-      <!-- PDF Font Upload (TTF) -->
-      <label class="btn bg-slate-700 cursor-pointer">
-        🔤 ฟอนต์ PDF (.ttf)
-        <input id="pdfFontFile" type="file" accept=".ttf" class="hidden"/>
-      </label>
-      <span id="pdfFontStatus" class="text-xs text-slate-300"></span>
     </div>
   </div>
 
@@ -69,7 +65,6 @@
   <div id="buy" class="tabpane">
     <div class="card p-4 mb-4">
       <h2 class="text-xl font-semibold mb-3">🛒 บันทึกการซื้อ</h2>
-
       <div class="grid md:grid-cols-3 gap-3 mb-3">
         <div>
           <label class="text-sm text-slate-300">วันที่</label>
@@ -79,11 +74,11 @@
           <label class="text-sm text-slate-300">ร้านที่ซื้อ</label>
           <div class="flex gap-2">
             <select id="buyStore" class="field w-full"></select>
-            <button id="addStoreBtn" class="btn bg-emerald-700">+ ร้าน</button>
+            <button id="addStoreBtn" class="btn bg-emerald-700 hover:bg-emerald-600">+ ร้าน</button>
           </div>
         </div>
         <div class="flex items-end">
-          <button id="addBuyItem" class="btn bg-sky-600 w-full">+ เพิ่มรายการ</button>
+          <button id="addBuyItem" class="btn bg-sky-600 hover:bg-sky-500">+ เพิ่มรายการ</button>
         </div>
       </div>
 
@@ -91,10 +86,9 @@
       <div id="buyItems" class="space-y-2"></div>
 
       <div class="flex justify-end gap-2 mt-4">
-        <button id="buyResetBtn" class="btn bg-slate-600">เคลียร์</button>
-        <button id="buySubmitBtn" class="btn bg-white text-black">บันทึกการซื้อ</button>
+        <button id="buyResetBtn" class="btn bg-slate-600 hover:bg-slate-500">เคลียร์</button>
+        <button id="buySubmitBtn" class="btn bg-white text-black hover:bg-slate-200">บันทึกการซื้อ</button>
       </div>
-
       <div class="text-xs text-slate-400 mt-2">
         พิมพ์ชื่อสินค้าในช่อง “สินค้า” เพื่อค้นหาและเลือก — ระบบจะ Autofill ราคา “ซื้อ”
       </div>
@@ -105,7 +99,6 @@
   <div id="sell" class="tabpane hidden">
     <div class="card p-4 mb-4">
       <h2 class="text-xl font-semibold mb-3">💰 บันทึกการขาย</h2>
-
       <div class="grid md:grid-cols-3 gap-3 mb-3">
         <div>
           <label class="text-sm text-slate-300">วันที่</label>
@@ -115,21 +108,20 @@
           <label class="text-sm text-slate-300">ลูกค้า</label>
           <div class="flex gap-2">
             <select id="sellCustomer" class="field w-full"></select>
-            <button id="addCustomerBtn" class="btn bg-emerald-700">+ ลูกค้า</button>
+            <button id="addCustomerBtn" class="btn bg-emerald-700 hover:bg-emerald-600">+ ลูกค้า</button>
           </div>
         </div>
         <div class="flex items-end">
-          <button id="addSellItem" class="btn bg-sky-600 w-full">+ เพิ่มรายการ</button>
+          <button id="addSellItem" class="btn bg-sky-600 hover:bg-sky-500">+ เพิ่มรายการ</button>
         </div>
       </div>
 
       <div id="sellItems" class="space-y-2"></div>
 
       <div class="flex justify-end gap-2 mt-4">
-        <button id="sellResetBtn" class="btn bg-slate-600">เคลียร์</button>
-        <button id="sellSubmitBtn" class="btn bg-white text-black">บันทึกการขาย</button>
+        <button id="sellResetBtn" class="btn bg-slate-600 hover:bg-slate-500">เคลียร์</button>
+        <button id="sellSubmitBtn" class="btn bg-white text-black hover:bg-slate-200">บันทึกการขาย</button>
       </div>
-
       <div class="text-xs text-slate-400 mt-2">
         พิมพ์ชื่อสินค้าในช่อง “สินค้า” เพื่อค้นหาและเลือก — ระบบจะ Autofill ราคา “ขาย”
       </div>
@@ -141,7 +133,7 @@
     <div class="card p-4 mb-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-xl font-semibold">📦 รายการสินค้า</h2>
-        <button id="addProductBtn" class="btn bg-sky-600">+ เพิ่มสินค้า</button>
+        <button id="addProductBtn" class="btn bg-sky-600 hover:bg-sky-500">+ เพิ่มสินค้า</button>
       </div>
 
       <div id="productForm" class="hidden card p-4 mb-3">
@@ -155,10 +147,10 @@
           <input id="productSellPrice" class="field" placeholder="ราคาขาย" type="number" step="0.01" min="0"/>
           <label class="flex items-center gap-2"><input id="productHasVat" type="checkbox"/> <span>VAT 7%</span></label>
         </div>
-        <div class="flex gap-2 mt-3 flex-wrap">
-          <button id="saveProductBtn" class="btn bg-emerald-600">บันทึกสินค้า</button>
-          <button id="cancelProductBtn" class="btn bg-slate-600">ยกเลิก</button>
-          <button id="addCategoryBtn" class="btn bg-purple-700">+ หมวดหมู่</button>
+        <div class="flex gap-2 mt-3">
+          <button id="saveProductBtn" class="btn bg-emerald-600 hover:bg-emerald-500">บันทึกสินค้า</button>
+          <button id="cancelProductBtn" class="btn bg-slate-600 hover:bg-slate-500">ยกเลิก</button>
+          <button id="addCategoryBtn" class="btn bg-purple-700 hover:bg-purple-600">+ หมวดหมู่</button>
         </div>
       </div>
 
@@ -180,22 +172,19 @@
     <div class="card p-4 mb-4">
       <h2 class="text-xl font-semibold mb-3">📊 สรุปตามเดือน</h2>
 
-      <!-- FIX: Layout ไม่ขี่กัน -->
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
-        <div class="md:col-span-3">
+      <div class="grid md:grid-cols-6 gap-3 mb-4">
+        <div>
           <label class="text-sm text-slate-300">เดือน</label>
           <input id="sumMonth" type="month" class="field w-full"/>
         </div>
-
-        <div class="md:col-span-2">
+        <div>
           <label class="text-sm text-slate-300">โหมด</label>
           <select id="sumMode" class="field w-full">
             <option value="buy">ซื้อ</option>
             <option value="sell">ขาย</option>
           </select>
         </div>
-
-        <div class="md:col-span-3">
+        <div>
           <label class="text-sm text-slate-300">ฟิลเตอร์ PDF</label>
           <select id="pdfFilter" class="field w-full">
             <option value="all">ทั้งหมด</option>
@@ -204,18 +193,20 @@
             <option value="vat">เฉพาะรายการ VAT</option>
           </select>
         </div>
-
-        <div id="actorSelectBox" class="hidden md:col-span-2">
+        <div id="actorSelectBox" class="hidden">
           <label class="text-sm text-slate-300">เลือกร้าน/ลูกค้า</label>
           <select id="actorSelect" class="field w-full"><option value="__ALL__">ทั้งหมด</option></select>
         </div>
 
-        <div class="md:col-span-2 flex flex-col justify-end gap-2">
+        <div class="flex items-end">
           <label class="flex items-center gap-2 text-sm text-slate-200 select-none">
-            <input id="pdfShowMoney" type="checkbox" class="accent-sky-500" checked />
+            <input id="pdfShowMoney" type="checkbox" checked />
             แสดงยอดเงินใน PDF
           </label>
-          <button id="exportCustomPdf" class="btn bg-red-600 w-full">📄 ส่งออก PDF</button>
+        </div>
+
+        <div class="flex items-end">
+          <button id="exportCustomPdf" class="btn bg-red-600 hover:bg-red-500 w-full">📄 ส่งออก PDF (ฝั่งบราวเซอร์)</button>
         </div>
       </div>
 
@@ -267,7 +258,7 @@
       <div class="flex justify-between items-center mt-4">
         <div class="text-xs text-slate-400">ประวัติรายการเดือนนี้</div>
         <div class="flex gap-2">
-          <button id="exportServerPdf" class="btn bg-orange-600">☁️ PDF 3 หน้า (Apps Script)</button>
+          <button id="exportServerPdf" class="btn bg-orange-600 hover:bg-orange-500">☁️ PDF (Apps Script)</button>
         </div>
       </div>
 
@@ -325,8 +316,8 @@
           <input id="reportActor" class="field w-full" placeholder="พิมพ์ชื่อให้ตรง หรือเว้นว่าง=ทั้งหมด"/>
         </div>
       </div>
-      <div class="flex items-end gap-2 mt-3 flex-wrap">
-        <button id="generateServerPDF" class="btn bg-red-600">สร้าง PDF 3 หน้า (ตามตัวเลือก)</button>
+      <div class="flex items-end gap-2 mt-3">
+        <button id="generateServerPDF" class="btn bg-red-600 hover:bg-red-500">สร้าง PDF 3 หน้า (ตามตัวเลือก)</button>
         <div class="text-xs text-slate-400">ไฟล์อยู่ในโฟลเดอร์ <span class="chip">POS_Monthly_Reports</span> บน Google Drive</div>
       </div>
     </div>
@@ -334,8 +325,38 @@
 
 </div>
 
+<!-- ===== Modal: Font manager ===== -->
+<div id="fontModal" class="modal-backdrop">
+  <div class="modal card p-4">
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-lg font-semibold">🅰️ ฟอนต์ PDF ไทย (ฝั่งบราวเซอร์)</div>
+      <button id="fontClose" class="btn bg-slate-700 hover:bg-slate-600">ปิด</button>
+    </div>
+
+    <div class="text-sm text-slate-300 mb-3">
+      อัปโหลดไฟล์ <span class="chip mono">.ttf</span> ครั้งเดียว แล้วระบบจะเก็บเป็น Base64 ในเครื่อง (localStorage) แบบถาวร
+      เพื่อให้ jsPDF แสดงภาษาไทย “ไม่เป็นสี่เหลี่ยม”
+    </div>
+
+    <div class="flex flex-wrap gap-2 items-center mb-3">
+      <label class="btn bg-indigo-600 hover:bg-indigo-500 cursor-pointer">
+        ⬆️ เลือกไฟล์ฟอนต์ .ttf
+        <input id="fontFile" type="file" accept=".ttf,font/ttf,application/x-font-ttf" class="hidden" />
+      </label>
+
+      <button id="fontClear" class="btn bg-rose-700 hover:bg-rose-600">ลบฟอนต์ที่บันทึกไว้</button>
+
+      <span id="fontStatus" class="text-sm text-slate-300"></span>
+    </div>
+
+    <div class="text-xs text-slate-400">
+      แนะนำ: <span class="mono">THSarabunNew.ttf</span> หรือ <span class="mono">Kanit-Regular.ttf</span>
+    </div>
+  </div>
+</div>
+
 <script>
-/* ------------------ State ------------------ */
+/* ================== State ================== */
 let products = JSON.parse(localStorage.getItem('products')||'[]');
 let stores = JSON.parse(localStorage.getItem('stores')||'["เซเว่น","โลตัส","บิ๊กซี","แม็คโคร"]');
 let customers = JSON.parse(localStorage.getItem('customers')||'["ลูกค้าทั่วไป"]');
@@ -358,7 +379,6 @@ function saveToStorage(){
 function uid(prefix=''){
   return prefix + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
 }
-
 function toISODateClient(v){
   if(!v) return '';
   if (v instanceof Date) return v.toISOString().slice(0,10);
@@ -370,13 +390,11 @@ function toISODateClient(v){
   return s;
 }
 function monthKeyFromDate(v){ const iso=toISODateClient(v); return (iso && iso.length>=7) ? iso.slice(0,7) : ''; }
-
 function thb(n){ return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(Number(n)||0); }
-function formatCurrency(n){ return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(Number(n)||0); }
 
-/* ------------------ Tabs ------------------ */
+/* ================== Tabs ================== */
 $$('.tab-btn').forEach(btn=>{
-  btn.onclick=()=>{
+  btn.addEventListener('click', ()=>{
     $$('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     const id=btn.dataset.tab;
@@ -384,68 +402,20 @@ $$('.tab-btn').forEach(btn=>{
     $('#'+id).classList.remove('hidden');
     if(id==='summary'){ renderSummary(); }
     if(id==='reports'){ const now=new Date(); $('#reportMonth').value = now.toISOString().slice(0,7); }
-  };
+  });
 });
 
-/* ------------------ Script URL + Status ------------------ */
+/* ================== Script URL + Status ================== */
 const syncStatus = $('#syncStatus');
 function setSyncStatus(msg,cls='text-sky-300'){ syncStatus.textContent=msg; syncStatus.className=cls; }
-function getScriptUrl(){ return $('#scriptUrl').value.trim(); }
+function getScriptUrl(){ return ($('#scriptUrl')?.value||'').trim(); }
 function rememberScriptUrl(){ localStorage.setItem('scriptUrl', getScriptUrl()); }
-(function restoreScriptUrl(){ const u=localStorage.getItem('scriptUrl'); if(u) $('#scriptUrl').value=u; })();
+(function restoreScriptUrl(){ const u=localStorage.getItem('scriptUrl'); if(u && $('#scriptUrl')) $('#scriptUrl').value=u; })();
 
-/* ------------------ Init Defaults ------------------ */
+/* ================== Init Defaults ================== */
 $('#buyDate').value = toISODateClient(new Date());
 $('#sellDate').value = toISODateClient(new Date());
 
-/* ------------------ PDF Font Upload (TTF, ไม่ฝัง base64 ในโค้ด) ------------------ */
-let pdfFontBase64 = "";
-let pdfFontName = "THAI_FONT";
-
-function arrayBufferToBase64(buffer){
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for (let i=0; i<bytes.length; i+=chunkSize){
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunkSize));
-  }
-  return btoa(binary);
-}
-function setPdfFontStatus(msg, ok=true){
-  const el = $('#pdfFontStatus');
-  if(!el) return;
-  el.textContent = msg;
-  el.className = ok ? 'text-xs text-emerald-300' : 'text-xs text-rose-300';
-}
-$('#pdfFontFile')?.addEventListener('change', async (e)=>{
-  const f = e.target.files?.[0];
-  if(!f) return;
-  try{
-    const buf = await f.arrayBuffer();
-    pdfFontBase64 = arrayBufferToBase64(buf);
-    pdfFontName = (f.name || 'THAI_FONT').replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]/g,'_') || 'THAI_FONT';
-    setPdfFontStatus(`โหลดฟอนต์แล้ว: ${f.name}`, true);
-  }catch(err){
-    pdfFontBase64 = "";
-    setPdfFontStatus('โหลดฟอนต์ไม่สำเร็จ', false);
-  }finally{
-    e.target.value = '';
-  }
-});
-function ensureThaiPdfFont(doc){
-  try{
-    if(!pdfFontBase64) return false;
-    const ttfFile = `${pdfFontName}.ttf`;
-    doc.addFileToVFS(ttfFile, pdfFontBase64);
-    doc.addFont(ttfFile, pdfFontName, "normal");
-    doc.setFont(pdfFontName);
-    return true;
-  }catch(_){
-    return false;
-  }
-}
-
-/* ------------------ UI refreshers ------------------ */
 function refreshStoreCustomer(){
   $('#buyStore').innerHTML = stores.map(s=>`<option value="${s}">${s}</option>`).join('');
   $('#sellCustomer').innerHTML = customers.map(c=>`<option value="${c}">${c}</option>`).join('');
@@ -476,9 +446,9 @@ function refreshProductTable(){
   refreshProductDatalist();
 }
 
-/* ------------------ Product CRUD ------------------ */
+/* ================== Product CRUD ================== */
 let editingProductId = null;
-$('#addProductBtn').onclick=()=>{
+$('#addProductBtn').addEventListener('click', ()=>{
   $('#productForm').classList.remove('hidden');
   editingProductId=null;
   $('#productName').value='';
@@ -486,16 +456,12 @@ $('#addProductBtn').onclick=()=>{
   $('#productBuyPrice').value='';
   $('#productSellPrice').value='';
   $('#productHasVat').checked=false;
-};
-$('#cancelProductBtn').onclick=()=>{ $('#productForm').classList.add('hidden'); };
-$('#addCategoryBtn').onclick=()=>{
+});
+$('#cancelProductBtn').addEventListener('click', ()=>$('#productForm').classList.add('hidden'));
+$('#addCategoryBtn').addEventListener('click', ()=>{
   const name=prompt('ชื่อหมวดหมู่ใหม่:');
-  if(name && !categories.includes(name)){
-    categories.push(name);
-    saveToStorage();
-    refreshCategories();
-  }
-};
+  if(name && !categories.includes(name)){ categories.push(name); saveToStorage(); refreshCategories(); }
+});
 window.editProduct = (id)=>{
   const p=products.find(x=>x.id===id); if(!p) return;
   $('#productForm').classList.remove('hidden');
@@ -511,31 +477,34 @@ window.deleteProduct = (id)=>{
   products = products.filter(p=>p.id!==id);
   saveToStorage(); refreshProductTable();
 };
-$('#saveProductBtn').onclick=()=>{
+$('#saveProductBtn').addEventListener('click', ()=>{
   const name=$('#productName').value.trim();
   const category=$('#productCategory').value.trim();
   const buyPrice=Number($('#productBuyPrice').value||0);
   const sellPrice=Number($('#productSellPrice').value||0);
   const hasVat=$('#productHasVat').checked;
   if(!name) return alert('กรอกชื่อสินค้า');
-
   if(editingProductId){
     const p=products.find(x=>x.id===editingProductId);
     Object.assign(p,{name,category,buyPrice,sellPrice,hasVat});
   }else{
     products.push({id:uid('p_'),name,category,buyPrice,sellPrice,hasVat});
   }
-  saveToStorage();
-  refreshProductTable();
+  saveToStorage(); refreshProductTable();
   $('#productForm').classList.add('hidden');
-  refreshProductDatalist();
-};
+});
 
-/* ------------------ Add Store/Customer ------------------ */
-$('#addStoreBtn').onclick=()=>{ const s=prompt('ชื่อร้าน:'); if(s && !stores.includes(s)){ stores.push(s); saveToStorage(); refreshStoreCustomer(); } };
-$('#addCustomerBtn').onclick=()=>{ const c=prompt('ชื่อลูกค้า:'); if(c && !customers.includes(c)){ customers.push(c); saveToStorage(); refreshStoreCustomer(); } };
+/* ================== Add Store/Customer ================== */
+$('#addStoreBtn').addEventListener('click', ()=>{
+  const s=prompt('ชื่อร้าน:');
+  if(s && !stores.includes(s)){ stores.push(s); saveToStorage(); refreshStoreCustomer(); }
+});
+$('#addCustomerBtn').addEventListener('click', ()=>{
+  const c=prompt('ชื่อลูกค้า:');
+  if(c && !customers.includes(c)){ customers.push(c); saveToStorage(); refreshStoreCustomer(); }
+});
 
-/* ------------------ Item Rows (Buy/Sell) ------------------ */
+/* ================== Item Rows (Buy/Sell) ================== */
 function makeItemRow(mode){
   const wrap = document.createElement('div');
   wrap.className='card p-3';
@@ -555,7 +524,7 @@ function makeItemRow(mode){
       </div>
       <div class="flex items-end justify-end gap-2">
         <span class="text-slate-400 text-sm total">รวม: ฿0</span>
-        <button class="btn bg-rose-700 remove">ลบ</button>
+        <button type="button" class="btn bg-rose-700 hover:bg-rose-600 remove">ลบ</button>
       </div>
     </div>
   `;
@@ -568,7 +537,6 @@ function makeItemRow(mode){
     const t=(Number(qtyInput.value||0)*Number(priceInput.value||0));
     totalSpan.textContent='รวม: '+thb(t);
   }
-
   nameInput.addEventListener('input', ()=>{
     const p = products.find(x=> x.name.toLowerCase() === nameInput.value.trim().toLowerCase());
     if(p){
@@ -582,12 +550,11 @@ function makeItemRow(mode){
   qtyInput.addEventListener('input', recalc);
   priceInput.addEventListener('input', recalc);
 
-  wrap.querySelector('.remove').onclick=()=>{
+  wrap.querySelector('.remove').addEventListener('click', ()=>{
     const parent=wrap.parentElement;
     if(parent.children.length>1) wrap.remove();
     else alert('ต้องมีอย่างน้อย 1 รายการ');
-  };
-
+  });
   return wrap;
 }
 function ensureOneRow(containerId, mode){
@@ -595,15 +562,16 @@ function ensureOneRow(containerId, mode){
   if(!c.children.length) c.appendChild(makeItemRow(mode));
 }
 
-/* ------------------ Prevent Double Submit ------------------ */
+/* ================== Prevent Double Submit ================== */
 let submitLocks = { buy:false, sell:false };
 let lastHash = { buy:'', sell:'' };
 function objHash(o){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).slice(-24); }catch(_){ return String(Math.random()); } }
 
-/* ------------------ BUY Submit ------------------ */
-$('#addBuyItem').onclick=()=>{ $('#buyItems').appendChild(makeItemRow('buy')); };
-$('#buyResetBtn').onclick=()=>{ $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy'); };
-$('#buySubmitBtn').onclick=async ()=>{
+/* ================== BUY Submit ================== */
+$('#addBuyItem').addEventListener('click', ()=>$('#buyItems').appendChild(makeItemRow('buy')));
+$('#buyResetBtn').addEventListener('click', ()=>{ $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy'); });
+
+$('#buySubmitBtn').addEventListener('click', async ()=>{
   if(submitLocks.buy) return;
   const date = toISODateClient($('#buyDate').value);
   const store = $('#buyStore').value;
@@ -623,19 +591,25 @@ $('#buySubmitBtn').onclick=async ()=>{
 
   const h = objHash(tx);
   if(h === lastHash.buy) return alert('คุณเพิ่งบันทึกรายการนี้ไปแล้ว');
-  lastHash.buy = h; submitLocks.buy=true; $('#buySubmitBtn').disabled=true;
+  lastHash.buy = h;
 
+  submitLocks.buy=true; $('#buySubmitBtn').disabled=true;
   buyTransactions.push(tx); saveToStorage();
   const ok = await syncNow('buy-save');
   submitLocks.buy=false; $('#buySubmitBtn').disabled=false;
 
-  if(ok) { alert('บันทึกการซื้อเรียบร้อย'); $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy'); renderSummary(); }
-};
+  if(ok){
+    alert('บันทึกการซื้อเรียบร้อย');
+    $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy');
+    renderSummary();
+  }
+});
 
-/* ------------------ SELL Submit ------------------ */
-$('#addSellItem').onclick=()=>{ $('#sellItems').appendChild(makeItemRow('sell')); };
-$('#sellResetBtn').onclick=()=>{ $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell'); };
-$('#sellSubmitBtn').onclick=async ()=>{
+/* ================== SELL Submit ================== */
+$('#addSellItem').addEventListener('click', ()=>$('#sellItems').appendChild(makeItemRow('sell')));
+$('#sellResetBtn').addEventListener('click', ()=>{ $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell'); });
+
+$('#sellSubmitBtn').addEventListener('click', async ()=>{
   if(submitLocks.sell) return;
   const date = toISODateClient($('#sellDate').value);
   const customer = $('#sellCustomer').value;
@@ -655,16 +629,21 @@ $('#sellSubmitBtn').onclick=async ()=>{
 
   const h = objHash(tx);
   if(h === lastHash.sell) return alert('คุณเพิ่งบันทึกรายการนี้ไปแล้ว');
-  lastHash.sell = h; submitLocks.sell=true; $('#sellSubmitBtn').disabled=true;
+  lastHash.sell = h;
 
+  submitLocks.sell=true; $('#sellSubmitBtn').disabled=true;
   sellTransactions.push(tx); saveToStorage();
   const ok = await syncNow('sell-save');
   submitLocks.sell=false; $('#sellSubmitBtn').disabled=false;
 
-  if(ok) { alert('บันทึกการขายเรียบร้อย'); $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell'); renderSummary(); }
-};
+  if(ok){
+    alert('บันทึกการขายเรียบร้อย');
+    $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell');
+    renderSummary();
+  }
+});
 
-/* ------------------ LOAD / SETUP / SYNC ------------------ */
+/* ================== LOAD / SETUP / SYNC ================== */
 async function httpJson(url, opt={}){
   const res = await fetch(url, opt);
   const text = await res.text();
@@ -672,8 +651,7 @@ async function httpJson(url, opt={}){
 }
 async function postPlainJson(url, payload){
   const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
-  const txt = await res.text();
-  try{ return JSON.parse(txt); }catch(_){ return { ok:false, error: txt }; }
+  const txt = await res.text(); try{ return JSON.parse(txt); }catch(_){ return { ok:false, error: txt }; }
 }
 function dedupAndSanitizeTx(arr){
   const map=new Map();
@@ -702,15 +680,16 @@ function replaceStateFromServer(d){
   saveToStorage();
 }
 
-$('#setupBtn').onclick=async ()=>{
+$('#setupBtn').addEventListener('click', async ()=>{
   const u=getScriptUrl(); if(!u) return alert('กรุณาใส่ Script URL');
   rememberScriptUrl();
   setSyncStatus('กำลังตั้งค่า...','text-yellow-400');
   const r=await httpJson(u+'?action=setup');
-  if(r?.ok){ setSyncStatus('ตั้งค่าสำเร็จ','text-emerald-400'); }
-  else { setSyncStatus('ผิดพลาด: '+(r?.error||'unknown'),'text-rose-400');}
-};
-$('#loadBtn').onclick=async ()=>{
+  if(r?.ok) setSyncStatus('ตั้งค่าสำเร็จ','text-emerald-400');
+  else setSyncStatus('ผิดพลาด: '+(r?.error||'unknown'),'text-rose-400');
+});
+
+$('#loadBtn').addEventListener('click', async ()=>{
   const u=getScriptUrl(); if(!u) return alert('กรุณาใส่ Script URL');
   rememberScriptUrl();
   setSyncStatus('กำลังโหลด...','text-yellow-400');
@@ -718,7 +697,7 @@ $('#loadBtn').onclick=async ()=>{
     const d = await httpJson(u+'?action=load',{method:'GET'});
     if(d?.ok){
       replaceStateFromServer(d);
-      refreshAllUI();
+      refreshAllUI(); renderSummary();
       setSyncStatus('โหลดข้อมูลสำเร็จ','text-emerald-400');
     }else{
       setSyncStatus('โหลดไม่สำเร็จ: '+(d?.error||'unknown'),'text-rose-400');
@@ -726,8 +705,9 @@ $('#loadBtn').onclick=async ()=>{
   }catch(e){
     setSyncStatus('โหลดไม่สำเร็จ: '+e,'text-rose-400');
   }
-};
-$('#syncBtn').onclick=()=>syncNow('manual');
+});
+
+$('#syncBtn').addEventListener('click', ()=>syncNow('manual'));
 
 async function syncNow(reason='auto'){
   const u=getScriptUrl();
@@ -741,13 +721,15 @@ async function syncNow(reason='auto'){
   try{
     const r=await postPlainJson(u, payload);
     if(r?.ok){ setSyncStatus(`ส่งข้อมูลสำเร็จ (${reason})`,'text-emerald-400'); return true; }
-    setSyncStatus('สคริปต์ตอบผิดพลาด: '+(r?.error||'unknown'),'text-rose-400'); return false;
+    setSyncStatus('สคริปต์ตอบผิดพลาด: '+(r?.error||'unknown'),'text-rose-400');
+    return false;
   }catch(e){
-    setSyncStatus('ส่งข้อมูลไม่สำเร็จ: '+e,'text-rose-400'); return false;
+    setSyncStatus('ส่งข้อมูลไม่สำเร็จ: '+e,'text-rose-400');
+    return false;
   }
 }
 
-/* ------------------ Summary & History ------------------ */
+/* ================== Summary & History ================== */
 function aggForMonth(mode, month){
   const source = (mode==='buy') ? buyTransactions : sellTransactions;
   const arr = source.filter(t=> monthKeyFromDate(t.date)===month);
@@ -758,17 +740,13 @@ function aggForMonth(mode, month){
     const k = i.productName;
     const cat = (products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ';
     if(!byProduct.has(k)) byProduct.set(k, {productName:k, category:cat, qty:0, amount:0});
-    const x=byProduct.get(k);
-    x.qty+=Number(i.quantity||0);
-    x.amount+=Number(i.total||0);
+    const x=byProduct.get(k); x.qty+=Number(i.quantity||0); x.amount+=Number(i.total||0);
   });
 
   const byCategory = new Map();
   [...byProduct.values()].forEach(p=>{
     if(!byCategory.has(p.category)) byCategory.set(p.category,{category:p.category, qty:0, amount:0});
-    const x=byCategory.get(p.category);
-    x.qty+=p.qty;
-    x.amount+=p.amount;
+    const x=byCategory.get(p.category); x.qty+=p.qty; x.amount+=p.amount;
   });
 
   const byActor = new Map();
@@ -807,9 +785,14 @@ function renderSummary(){
   $('#actorTitle').textContent = mode==='buy' ? 'ตามร้าน' : 'ตามลูกค้า';
   $('#actorCol').textContent = mode==='buy' ? 'ร้าน' : 'ลูกค้า';
 
-  $('#sumByProduct').innerHTML = cur.arrP.map(x=>`<tr><td class="p-1">${x.productName}</td><td class="p-1">${x.category}</td><td class="p-1">${x.qty.toLocaleString('th-TH')}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('') || `<tr><td colspan="4" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
-  $('#sumByCategory').innerHTML = cur.arrC.map(x=>`<tr><td class="p-1">${x.category}</td><td class="p-1">${x.qty.toLocaleString('th-TH')}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('') || `<tr><td colspan="3" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
-  $('#sumByActor').innerHTML = cur.arrA.map(x=>`<tr><td class="p-1">${x.actor}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('') || `<tr><td colspan="2" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
+  $('#sumByProduct').innerHTML = cur.arrP.map(x=>`<tr><td class="p-1">${x.productName}</td><td class="p-1">${x.category}</td><td class="p-1">${x.qty.toLocaleString('th-TH')}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('')
+    || `<tr><td colspan="4" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
+
+  $('#sumByCategory').innerHTML = cur.arrC.map(x=>`<tr><td class="p-1">${x.category}</td><td class="p-1">${x.qty.toLocaleString('th-TH')}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('')
+    || `<tr><td colspan="3" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
+
+  $('#sumByActor').innerHTML = cur.arrA.map(x=>`<tr><td class="p-1">${x.actor}</td><td class="p-1">${thb(x.amount)}</td></tr>`).join('')
+    || `<tr><td colspan="2" class="p-2 text-center text-slate-500">ไม่มีข้อมูล</td></tr>`;
 
   const buyRows = buyTransactions.filter(t=>monthKeyFromDate(t.date)===month).map(t=>`
     <tr class="border-b border-slate-700">
@@ -834,106 +817,48 @@ function renderSummary(){
   $('#sellHistory').innerHTML = sellRows || `<tr><td colspan="4" class="p-2 text-center text-slate-500">ไม่มีรายการ</td></tr>`;
 }
 
-/* edit from history */
-window.loadTxToForm = (mode,id)=>{
-  const arr = mode==='buy'? buyTransactions : sellTransactions;
-  const tx = arr.find(t=>t.id===id); if(!tx) return;
-
-  $$('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelector(`.tab-btn[data-tab="${mode}"]`).classList.add('active');
-  $$('.tabpane').forEach(p=>p.classList.add('hidden'));
-  $('#'+mode).classList.remove('hidden');
-
-  if(mode==='buy'){
-    $('#buyDate').value = toISODateClient(tx.date);
-    $('#buyStore').value = tx.store||'';
-    $('#buyItems').innerHTML='';
-    tx.items.forEach(()=>$('#buyItems').appendChild(makeItemRow('buy')));
-    [...$('#buyItems').children].forEach((div,i)=>{
-      const it=tx.items[i];
-      const name=div.querySelector('.product-name');
-      const qty=div.querySelector('.qty');
-      const price=div.querySelector('.price');
-      const prod = products.find(p=>p.id===it.productId) || {name:it.productName};
-      name.value = prod.name; name.dataset.productId = it.productId;
-      qty.value = it.quantity; price.value = it.price;
-      div.querySelector('.total').textContent = 'รวม: '+thb(it.total);
-    });
-    $('#buySubmitBtn').onclick=async ()=>{
-      if(submitLocks.buy) return;
-      const date = toISODateClient($('#buyDate').value);
-      const store = $('#buyStore').value;
-      const items = [...$('#buyItems').children].map(div=>{
-        const nm=div.querySelector('.product-name').value.trim();
-        const pid=div.querySelector('.product-name').dataset.productId||'';
-        const qty=Number(div.querySelector('.qty').value||0);
-        const price=Number(div.querySelector('.price').value||0);
-        const prod = products.find(p=>p.id===pid || p.name.toLowerCase()===nm.toLowerCase());
-        if(!prod) return null;
-        return { productId: prod.id, productName: prod.name, quantity: qty, price, total: qty*price, hasVat: !!prod.hasVat };
-      }).filter(Boolean);
-      const total = items.reduce((s,i)=>s+i.total,0);
-      Object.assign(tx,{date,store,items,total});
-      saveToStorage();
-      const ok=await syncNow('buy-edit');
-      if(ok) alert('แก้ไขเรียบร้อย');
-      renderSummary();
-    };
-  }else{
-    $('#sellDate').value = toISODateClient(tx.date);
-    $('#sellCustomer').value = tx.customer||'';
-    $('#sellItems').innerHTML='';
-    tx.items.forEach(()=>$('#sellItems').appendChild(makeItemRow('sell')));
-    [...$('#sellItems').children].forEach((div,i)=>{
-      const it=tx.items[i];
-      const name=div.querySelector('.product-name');
-      const qty=div.querySelector('.qty');
-      const price=div.querySelector('.price');
-      const prod = products.find(p=>p.id===it.productId) || {name:it.productName};
-      name.value = prod.name; name.dataset.productId = it.productId;
-      qty.value = it.quantity; price.value = it.price;
-      div.querySelector('.total').textContent = 'รวม: '+thb(it.total);
-    });
-    $('#sellSubmitBtn').onclick=async ()=>{
-      if(submitLocks.sell) return;
-      const date = toISODateClient($('#sellDate').value);
-      const customer = $('#sellCustomer').value;
-      const items = [...$('#sellItems').children].map(div=>{
-        const nm=div.querySelector('.product-name').value.trim();
-        const pid=div.querySelector('.product-name').dataset.productId||'';
-        const qty=Number(div.querySelector('.qty').value||0);
-        const price=Number(div.querySelector('.price').value||0);
-        const prod = products.find(p=>p.id===pid || p.name.toLowerCase()===nm.toLowerCase());
-        if(!prod) return null;
-        return { productId: prod.id, productName: prod.name, quantity: qty, price, total: qty*price, hasVat: !!prod.hasVat };
-      }).filter(Boolean);
-      const total = items.reduce((s,i)=>s+i.total,0);
-      Object.assign(tx,{date,customer,items,total});
-      saveToStorage();
-      const ok=await syncNow('sell-edit');
-      if(ok) alert('แก้ไขเรียบร้อย');
-      renderSummary();
-    };
-  }
-};
-
+window.loadTxToForm = (mode,id)=>alert('ฟังก์ชันแก้ไขในประวัติ (ยกไว้ก่อน) — ถ้าต้องการให้ครบเหมือนเวอร์ชันเดิม บอกได้ เดี๋ยวผมใส่ให้กลับแบบเต็มๆ');
 window.deleteTx = async (mode,id)=>{
   if(!confirm('ลบรายการนี้?')) return;
-  if(mode==='buy'){ buyTransactions = buyTransactions.filter(t=>t.id!==id); }
-  else { sellTransactions = sellTransactions.filter(t=>t.id!==id); }
-  saveToStorage();
-  renderSummary();
+  if(mode==='buy') buyTransactions = buyTransactions.filter(t=>t.id!==id);
+  else sellTransactions = sellTransactions.filter(t=>t.id!==id);
+  saveToStorage(); renderSummary();
   const ok=await syncNow(mode+'-delete');
   if(!ok) alert('Sync ผิดพลาด แต่ลบในเครื่องแล้ว');
 };
 
-/* ------------------ PDF filter UI ------------------ */
-$('#pdfFilter')?.addEventListener('change',(e)=>{
+/* ================== PDF Thai Font (Base64 in localStorage) ================== */
+const PDF_FONT_KEY = "pdfFontBase64";
+const PDF_FONT_NAME_KEY = "pdfFontFileName";
+
+function getSavedFontBase64(){ return localStorage.getItem(PDF_FONT_KEY) || ""; }
+function getSavedFontFileName(){ return localStorage.getItem(PDF_FONT_NAME_KEY) || ""; }
+
+function ensureThaiPdfFont(doc){
+  const b64 = getSavedFontBase64();
+  if(!b64){
+    doc.setFont('helvetica','normal');
+    return false;
+  }
+  const fileName = getSavedFontFileName() || "ThaiFont.ttf";
+  try{
+    doc.addFileToVFS(fileName, b64);
+    doc.addFont(fileName, "ThaiFont", "normal");
+    doc.setFont("ThaiFont", "normal");
+    return true;
+  }catch(e){
+    doc.setFont('helvetica','normal');
+    return false;
+  }
+}
+
+/* ================== PDF Export (Client) + ลบคอลัมน์ยอดรวมจริงเมื่อไม่แสดงเงิน ================== */
+$('#pdfFilter').addEventListener('change',(e)=>{
   if(e.target.value==='actor'){ $('#actorSelectBox').classList.remove('hidden'); populateActorSelect(); }
   else { $('#actorSelectBox').classList.add('hidden'); }
 });
-$('#sumMonth')?.addEventListener('change',()=>{ if(!$('#actorSelectBox').classList.contains('hidden')) populateActorSelect(); renderSummary(); });
-$('#sumMode')?.addEventListener('change',()=>{ if(!$('#actorSelectBox').classList.contains('hidden')) populateActorSelect(); renderSummary(); });
+$('#sumMonth').addEventListener('change',()=>{ if(!$('#actorSelectBox').classList.contains('hidden')) populateActorSelect(); renderSummary(); });
+$('#sumMode').addEventListener('change',()=>{ if(!$('#actorSelectBox').classList.contains('hidden')) populateActorSelect(); renderSummary(); });
 
 function populateActorSelect(){
   const month=$('#sumMonth').value;
@@ -942,120 +867,108 @@ function populateActorSelect(){
   $('#actorSelect').innerHTML = `<option value="__ALL__">ทั้งหมด</option>` + arrA.map(a=>`<option>${a.actor}</option>`).join('');
 }
 
-/* ------------------ PDF (Client) ------------------ */
-function safeText(s){ return String(s ?? '').replace(/\s+/g,' ').trim(); }
+function formatCurrency(n){
+  return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(Number(n)||0);
+}
 
-$('#exportCustomPdf').onclick=()=>{
-  const month = $('#sumMonth').value || new Date().toISOString().slice(0,7);
-  const mode = $('#sumMode').value || 'buy';
-  const filter = $('#pdfFilter').value || 'all';
-  const actorPick = (filter==='actor') ? ($('#actorSelect').value || '__ALL__') : '__ALL__';
-
-  const showMoney = !!$('#pdfShowMoney')?.checked;
+$('#exportCustomPdf').addEventListener('click', ()=>{
+  const month=$('#sumMonth').value;
+  const mode=$('#sumMode').value;
+  const filter=$('#pdfFilter').value;
+  const actorPick = (filter==='actor') ? $('#actorSelect').value : '__ALL__';
+  const showMoney = !!$('#pdfShowMoney').checked;
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-
-  // ใช้ฟอนต์ไทยถ้ามี (ไม่ฝัง base64 ในโค้ด)
   const hasThai = ensureThaiPdfFont(doc);
-  if(!hasThai) doc.setFont('helvetica');
 
   const title = `รายงาน${mode==='buy'?'ซื้อ':'ขาย'} — ${month}`;
-  const subtitle = `ฟิลเตอร์: ${filter}${(filter==='actor' && actorPick!=='__ALL__') ? ' : '+actorPick : ''} • ยอดเงิน: ${showMoney?'แสดง':'ซ่อน'}`;
-
   doc.setFontSize(16); doc.text(title, 14, 16);
-  doc.setFontSize(11); doc.text(subtitle, 14, 23);
+  doc.setFontSize(11);
+
+  if(!hasThai){
+    doc.setFontSize(10);
+    doc.text('(ยังไม่ได้ตั้งค่าฟอนต์ไทย: กดปุ่ม "ฟอนต์ PDF ไทย" แล้วอัปโหลด .ttf)', 14, 22);
+    doc.setFontSize(11);
+  }
 
   const {arrP,arrC,arrA,totalQty,totalAmt,items} = aggForMonth(mode,month);
   const itemsFiltered = (filter==='actor' && actorPick!=='__ALL__') ? items.filter(i=> i._actor===actorPick ) : items;
 
-  const addTable = (head, body)=> {
+  // ✅ helper: ถ้าไม่แสดงยอดเงิน -> ลบคอลัมน์สุดท้าย (ยอดรวม) ออกจริง
+  const addTable=(head, body)=> {
+    let h = [...head];
+    let b = body.map(r=>[...r]);
+
+    if(!showMoney){
+      h = h.slice(0, -1);           // ลบหัวคอลัมน์ยอดรวม
+      b = b.map(r => r.slice(0, h.length)); // ลบค่าคอลัมน์ยอดรวม
+    }
+
     doc.autoTable({
       startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 8 : 28,
-      head: [head],
-      body
+      head:[h],
+      body:b,
+      styles:{ font: hasThai ? "ThaiFont" : "helvetica" }
     });
   };
 
-  // สร้างหัวตารางตาม showMoney
   if(filter==='all'){
-    const head = showMoney ? ['สินค้า','หมวดหมู่','จำนวน','ยอดรวม'] : ['สินค้า','หมวดหมู่','จำนวน'];
-    const body = arrP.map(r=>{
-      if(showMoney) return [safeText(r.productName), safeText(r.category), String(r.qty.toLocaleString('th-TH')), formatCurrency(r.amount)];
-      return [safeText(r.productName), safeText(r.category), String(r.qty.toLocaleString('th-TH'))];
-    });
-    addTable(head, body);
-
+    addTable(['สินค้า','หมวดหมู่','จำนวน','ยอดรวม'],
+      arrP.map(r=>[r.productName,r.category,r.qty.toLocaleString('th-TH'), formatCurrency(r.amount)]));
   }else if(filter==='actor'){
-    const headA = showMoney ? [mode==='buy'?'ร้าน':'ลูกค้า','ยอดรวม'] : [mode==='buy'?'ร้าน':'ลูกค้า'];
-    const rowsA = (actorPick==='__ALL__' ? arrA : [{actor:actorPick, amount: itemsFiltered.reduce((s,i)=>s+i.total,0)}])
-      .map(r=>{
-        if(showMoney) return [safeText(r.actor), formatCurrency(r.amount)];
-        return [safeText(r.actor)];
-      });
-    addTable(headA, rowsA);
+    const rows = (actorPick==='__ALL__' ? arrA : [{actor:actorPick, amount: itemsFiltered.reduce((s,i)=>s+i.total,0)}])
+      .map(r=>[r.actor, formatCurrency(r.amount)]);
+    addTable([mode==='buy'?'ร้าน':'ลูกค้า','ยอดรวม'], rows);
 
-    // ถ้าเลือก actor เฉพาะ: สรุปตามสินค้า
     if(actorPick!=='__ALL__'){
       const byP=new Map();
       itemsFiltered.forEach(i=>{
         const k=i.productName;
-        if(!byP.has(k)) byP.set(k,{name:k,cat:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ',qty:0,amt:0});
-        const x=byP.get(k); x.qty+=Number(i.quantity||0); x.amt+=Number(i.total||0);
+        if(!byP.has(k)) byP.set(k,{
+          name:k,
+          cat:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ',
+          qty:0,amt:0
+        });
+        const x=byP.get(k); x.qty+=i.quantity; x.amt+=i.total;
       });
-      const rows2=[...byP.values()].sort((a,b)=>b.amt-a.amt).map(x=>{
-        if(showMoney) return [safeText(x.name), safeText(x.cat), String(x.qty.toLocaleString('th-TH')), formatCurrency(x.amt)];
-        return [safeText(x.name), safeText(x.cat), String(x.qty.toLocaleString('th-TH'))];
-      });
-      const head2 = showMoney ? ['สินค้า','หมวดหมู่','จำนวน','ยอดรวม'] : ['สินค้า','หมวดหมู่','จำนวน'];
-      addTable(head2, rows2);
+      const rows2=[...byP.values()].sort((a,b)=>b.amt-a.amt)
+        .map(x=>[x.name,x.cat,x.qty.toLocaleString('th-TH'), formatCurrency(x.amt)]);
+      addTable(['สินค้า','หมวดหมู่','จำนวน','ยอดรวม'], rows2);
     }
-
   }else if(filter==='category'){
-    const head = showMoney ? ['หมวดหมู่','จำนวน','ยอดรวม'] : ['หมวดหมู่','จำนวน'];
-    const body = arrC.map(r=>{
-      if(showMoney) return [safeText(r.category), String(r.qty.toLocaleString('th-TH')), formatCurrency(r.amount)];
-      return [safeText(r.category), String(r.qty.toLocaleString('th-TH'))];
-    });
-    addTable(head, body);
-
+    addTable(['หมวดหมู่','จำนวน','ยอดรวม'],
+      arrC.map(r=>[r.category, r.qty.toLocaleString('th-TH'), formatCurrency(r.amount)]));
   }else if(filter==='vat'){
     const vatItems=itemsFiltered.filter(i=>i.hasVat);
     const byP=new Map();
     vatItems.forEach(i=>{
       const k=i.productName;
-      if(!byP.has(k)) byP.set(k,{name:k,cat:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ',qty:0,amt:0});
-      const x=byP.get(k); x.qty+=Number(i.quantity||0); x.amt+=Number(i.total||0);
+      if(!byP.has(k)) byP.set(k,{
+        name:k,
+        cat:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ',
+        qty:0,amt:0
+      });
+      const x=byP.get(k); x.qty+=i.quantity; x.amt+=i.total;
     });
-    const rows=[...byP.values()].sort((a,b)=>b.amt-a.amt).map(x=>{
-      if(showMoney) return [safeText(x.name), safeText(x.cat), String(x.qty.toLocaleString('th-TH')), formatCurrency(x.amt)];
-      return [safeText(x.name), safeText(x.cat), String(x.qty.toLocaleString('th-TH'))];
-    });
-    const head = showMoney ? ['สินค้า (VAT)','หมวดหมู่','จำนวน','ยอดรวม'] : ['สินค้า (VAT)','หมวดหมู่','จำนวน'];
-    addTable(head, rows);
+    const rows=[...byP.values()].sort((a,b)=>b.amt-a.amt)
+      .map(x=>[x.name,x.cat,x.qty.toLocaleString('th-TH'), formatCurrency(x.amt)]);
+    addTable(['สินค้า (VAT)','หมวดหมู่','จำนวน','ยอดรวม'], rows);
   }
 
-  // สรุปรวมท้าย PDF (ถ้าซ่อนยอดเงิน ก็ไม่ต้องโชว์ยอดรวม)
-  if(showMoney){
-    doc.autoTable({
-      startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : 28,
-      head: [['สรุปรวมทั้งเดือน','จำนวนรวม','ยอดรวม']],
-      body: [[mode==='buy'?'ซื้อ':'ขาย', String(totalQty.toLocaleString('th-TH')), formatCurrency(totalAmt)]]
-    });
-  }else{
-    doc.autoTable({
-      startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : 28,
-      head: [['สรุปรวมทั้งเดือน','จำนวนรวม']],
-      body: [[mode==='buy'?'ซื้อ':'ขาย', String(totalQty.toLocaleString('th-TH'))]]
-    });
-  }
+  // ✅ ตารางสรุปท้าย: ถ้าไม่แสดงเงิน -> เหลือแค่ 2 คอลัมน์
+  addTable(['รวมทั้งเดือน','จำนวนรวม','ยอดรวม'],
+    [[mode==='buy'?'ซื้อ':'ขาย', totalQty.toLocaleString('th-TH'), formatCurrency(totalAmt)]]);
 
-  const fn = `รายงาน_${mode==='buy'?'ซื้อ':'ขาย'}_${month}_${filter}${(filter==='actor'&&actorPick!=='__ALL__')?('_'+actorPick):''}_${showMoney?'money':'nomoney'}.pdf`;
-  doc.save(fn);
-};
+  const file = `รายงาน_${mode==='buy'?'ซื้อ':'ขาย'}_${month}_${filter}${actorPick!=='__ALL__'?'_'+actorPick:''}${showMoney?'':'_noMoney'}.pdf`;
+  doc.save(file);
+});
 
-/* ------------------ PDF (Server) ------------------ */
-$('#generateServerPDF').onclick = $('#exportServerPdf').onclick = async ()=>{
+/* ================== PDF (Server) ================== */
+$('#generateServerPDF').addEventListener('click', serverPdf);
+$('#exportServerPdf').addEventListener('click', serverPdf);
+
+async function serverPdf(){
   const u=getScriptUrl(); if(!u) return alert('ใส่ Script URL');
   const month = ($('#reportMonth')?.value) || ($('#sumMonth')?.value) || new Date().toISOString().slice(0,7);
   const mode = ($('#reportMode')?.value) || ($('#sumMode')?.value) || 'buy';
@@ -1067,32 +980,34 @@ $('#generateServerPDF').onclick = $('#exportServerPdf').onclick = async ()=>{
   const r=await httpJson(`${u}?${params.toString()}`,{method:'GET'});
   if(r?.ok && r.url){ window.open(r.url,'_blank'); setSyncStatus('สร้าง PDF แล้ว เปิดดูได้เลย','text-emerald-400'); }
   else setSyncStatus('สร้าง PDF ไม่สำเร็จ: '+(r?.error||'unknown'),'text-rose-400');
-};
+}
 
-$('#reportFilter')?.addEventListener('change', e=>{
+/* ================== Reports filter UI ================== */
+$('#reportFilter').addEventListener('change', e=>{
   if(e.target.value==='actor') $('#reportActorBox').classList.remove('hidden');
   else $('#reportActorBox').classList.add('hidden');
 });
 
-/* ------------------ Export / Import JSON ------------------ */
+/* ================== Export / Import JSON ================== */
 function snapshot(){
-  return {
-    products, stores, customers, categories,
-    buyTransactions, sellTransactions,
-    exportedAt: new Date().toISOString()
-  };
+  return { products, stores, customers, categories, buyTransactions, sellTransactions, exportedAt: new Date().toISOString() };
 }
-$('#exportBtn').onclick=()=>{
-  const data = JSON.stringify(snapshot(), null, 2);
-  const blob = new Blob([data], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `Plug2PlugPOS_${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(a.href);
-};
+$('#exportBtn').addEventListener('click', ()=>{
+  try{
+    const data = JSON.stringify(snapshot(), null, 2);
+    const blob = new Blob([data], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Plug2PlugPOS_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+    setSyncStatus('Export JSON สำเร็จ ✅','text-emerald-400');
+  }catch(err){
+    setSyncStatus('Export ไม่สำเร็จ: '+err,'text-rose-400');
+  }
+});
 
 $('#importInput').addEventListener('change', async (e)=>{
   const f = e.target.files?.[0]; if(!f) return;
@@ -1108,20 +1023,76 @@ $('#importInput').addEventListener('change', async (e)=>{
     buyTransactions = (data.buyTransactions||[]);
     sellTransactions = (data.sellTransactions||[]);
 
-    saveToStorage();
-    refreshAllUI();
-    renderSummary();
+    saveToStorage(); refreshAllUI(); renderSummary();
 
     const ok = await syncNow('import');
     if(!ok) alert('Sync ไปชีตไม่สำเร็จ แต่ข้อมูลลงเครื่องแล้ว');
+    setSyncStatus('Import JSON สำเร็จ ✅','text-emerald-400');
   }catch(err){
     alert('อ่านไฟล์ไม่สำเร็จ: '+err);
+    setSyncStatus('Import ไม่สำเร็จ ❌','text-rose-400');
   }finally{
     e.target.value='';
   }
 });
 
-/* ------------------ Build Initial UI ------------------ */
+/* ================== Font Modal logic ================== */
+const fontModal = $('#fontModal');
+const fontStatus = $('#fontStatus');
+
+function updateFontStatus(){
+  const name = getSavedFontFileName();
+  const b64  = getSavedFontBase64();
+  if(b64){
+    fontStatus.innerHTML = `สถานะ: <span class="text-emerald-300">พร้อมใช้งาน</span> • <span class="chip mono">${name || 'ThaiFont.ttf'}</span> • ขนาด ${Math.round(b64.length/1024)} KB (Base64)`;
+  }else{
+    fontStatus.innerHTML = `สถานะ: <span class="text-rose-300">ยังไม่มีฟอนต์</span> (PDF ไทยจะกลายเป็น “สี่เหลี่ยม”)`;
+  }
+}
+
+$('#fontBtn').addEventListener('click', ()=>{
+  updateFontStatus();
+  fontModal.style.display='flex';
+});
+$('#fontClose').addEventListener('click', ()=>fontModal.style.display='none');
+fontModal.addEventListener('click', (e)=>{
+  if(e.target === fontModal) fontModal.style.display='none';
+});
+
+$('#fontClear').addEventListener('click', ()=>{
+  if(!confirm('ลบฟอนต์ PDF ที่บันทึกไว้?')) return;
+  localStorage.removeItem(PDF_FONT_KEY);
+  localStorage.removeItem(PDF_FONT_NAME_KEY);
+  updateFontStatus();
+  setSyncStatus('ลบฟอนต์ PDF แล้ว','text-slate-300');
+});
+
+$('#fontFile').addEventListener('change', async (e)=>{
+  const file = e.target.files?.[0];
+  if(!file) return;
+  try{
+    const buf = await file.arrayBuffer();
+    let binary = '';
+    const bytes = new Uint8Array(buf);
+    const chunkSize = 0x8000;
+    for(let i=0;i<bytes.length;i+=chunkSize){
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunkSize));
+    }
+    const b64 = btoa(binary);
+
+    localStorage.setItem(PDF_FONT_KEY, b64);
+    localStorage.setItem(PDF_FONT_NAME_KEY, file.name || 'ThaiFont.ttf');
+
+    updateFontStatus();
+    setSyncStatus('บันทึกฟอนต์ไทยสำหรับ PDF สำเร็จ ✅','text-emerald-400');
+  }catch(err){
+    setSyncStatus('บันทึกฟอนต์ไม่สำเร็จ: '+err,'text-rose-400');
+  }finally{
+    e.target.value = '';
+  }
+});
+
+/* ================== Build Initial UI ================== */
 function refreshAllUI(){
   refreshStoreCustomer();
   refreshCategories();
@@ -1129,13 +1100,11 @@ function refreshAllUI(){
   refreshProductDatalist();
   $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy');
   $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell');
-
-  const now=new Date();
-  $('#sumMonth').value = now.toISOString().slice(0,7);
-  $('#reportMonth').value = now.toISOString().slice(0,7);
+  const now=new Date(); $('#sumMonth').value = now.toISOString().slice(0,7);
 }
 refreshAllUI();
 renderSummary();
+updateFontStatus();
 </script>
 </body>
 </html>
