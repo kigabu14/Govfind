@@ -1,27 +1,40 @@
-$('#exportCustomPdf').onclick = () => {
-  const { jsPDF } = window.jspdf; 
-  const doc = new jsPDF();
-
-  // Include a Thai font
-  doc.addFileToVFS('THSarabunNew.ttf', 'Base64_ฟอนต์_TH_Sarabun');
-  doc.addFont('THSarabunNew.ttf', 'THSarabunNew', 'normal');
-  doc.setFont('THSarabunNew'); // Set the font to THSarabunNew
-
-  // Prepare to create a PDF
-  const month = $('#sumMonth').value;
-  const mode = $('#sumMode').value;
-  const filter = $('#pdfFilter').value;
-  const title = `รายงาน${mode === 'buy' ? 'ซื้อ' : 'ขาย'} — ${month}`;
-  doc.setFontSize(16);
-  doc.text(title, 14, 16);
-
-  // Add table content
-  const addTable = (head, body) => doc.autoTable({ startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 8 : 22, head: [head], body });
-
-  addTable(['รายการ', 'หมวดหมู่', 'จำนวน', 'ยอดรวม'], [
-    ['สินค้า 1', 'อาหาร', '10', '1000 บาท'],
-    ['สินค้า 2', 'เครื่องใช้', '5', '500 บาท']
-  ]);
-
-  doc.save(`รายงาน_${mode}_${month}.pdf`);
-};
+<html>
+<head>
+    <script src="path/to/pdf-lib.js"></script>
+</head>
+<body>
+    <script>
+        async function exportCustomPdf() {
+            const { PDFDocument, rgb } = PDFLib;
+            const pdfDoc = await PDFDocument.create();
+            const page = pdfDoc.addPage([600, 400]);
+            
+            // Embed Thai font (THSarabunNew)
+            const fontUrl = 'path/to/fonts/THSarabunNew.ttf';
+            const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+            const customFont = await pdfDoc.embedFont(fontBytes);
+            
+            // Custom text
+            const text = 'สวัสดีชาวโลก';
+            page.drawText(text, {
+                x: 50,
+                y: 300,
+                size: 25,
+                font: customFont,
+                color: rgb(0, 0, 0),
+            });
+            
+            // Serialize the PDFDocument to bytes
+            const pdfBytes = await pdfDoc.save();
+            
+            // Trigger the browser to download the PDF document
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = 'custom_pdf.pdf';
+            link.click();
+        }
+    </script>
+    <button onclick="exportCustomPdf()">Download PDF</button>
+</body>
+</html>
