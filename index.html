@@ -883,13 +883,13 @@ $('#exportCustomPdf').addEventListener('click', ()=>{
   const hasThai = ensureThaiPdfFont(doc);
 
   const title = `รายงาน${mode==='buy'?'ซื้อ':'ขาย'} — ${month}`;
-  doc.setFontSize(16); doc.text(title, 14, 16);
-  doc.setFontSize(11);
+  doc.setFontSize(20); doc.text(title, 18, 20);
+  doc.setFontSize(17);
 
   if(!hasThai){
-    doc.setFontSize(10);
+    doc.setFontSize(15);
     doc.text('(ยังไม่ได้ตั้งค่าฟอนต์ไทย: กดปุ่ม "ฟอนต์ PDF ไทย" แล้วอัปโหลด .ttf)', 14, 22);
-    doc.setFontSize(11);
+    doc.setFontSize(15);
   }
 
   const {arrP,arrC,arrA,totalQty,totalAmt,items} = aggForMonth(mode,month);
