@@ -230,7 +230,7 @@
           <h3 class="font-semibold mb-2">ตามสินค้า</h3>
           <div class="table-wrap">
             <table class="w-full text-sm">
-              <thead><tr><th class="p-1">สินค้า</th><th class="p-1">หมวด</th><th class="p-1">จำนวน</th><th class="p-1">ยอด</th></tr></thead>
+              <thead><tr><th class="p-1">สินค้า</th><th class="p-1">หมวดหมู่</th><th class="p-1">จำนวน</th><th class="p-1">ยอด</th></tr></thead>
               <tbody id="sumByProduct"></tbody>
             </table>
           </div>
@@ -505,7 +505,7 @@ $('#addCustomerBtn').addEventListener('click', ()=>{
 });
 
 /* ================== Item Rows (Buy/Sell) ================== */
-function makeItemRow(mode){
+function makeItemRow(mode, preset=null){
   const wrap = document.createElement('div');
   wrap.className='card p-3';
   wrap.innerHTML=`
@@ -537,6 +537,7 @@ function makeItemRow(mode){
     const t=(Number(qtyInput.value||0)*Number(priceInput.value||0));
     totalSpan.textContent='รวม: '+thb(t);
   }
+
   nameInput.addEventListener('input', ()=>{
     const p = products.find(x=> x.name.toLowerCase() === nameInput.value.trim().toLowerCase());
     if(p){
@@ -555,6 +556,27 @@ function makeItemRow(mode){
     if(parent.children.length>1) wrap.remove();
     else alert('ต้องมีอย่างน้อย 1 รายการ');
   });
+
+  // preset (ใช้ตอนโหลดแก้ไข)
+  if(preset){
+    const n = (preset.productName||'').trim();
+    const pid = String(preset.productId||'');
+    const qty = Number(preset.quantity||1);
+    const price = Number(preset.price||0);
+
+    nameInput.value = n;
+    qtyInput.value = qty;
+    priceInput.value = price;
+
+    const prod = products.find(p=>String(p.id)===pid) || products.find(p=>p.name.toLowerCase()===n.toLowerCase());
+    if(prod) nameInput.dataset.productId = prod.id;
+    else delete nameInput.dataset.productId;
+
+    recalc();
+  }else{
+    recalc();
+  }
+
   return wrap;
 }
 function ensureOneRow(containerId, mode){
@@ -567,14 +589,74 @@ let submitLocks = { buy:false, sell:false };
 let lastHash = { buy:'', sell:'' };
 function objHash(o){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).slice(-24); }catch(_){ return String(Math.random()); } }
 
+/* ================== Editing TX state ================== */
+let editingTx = { mode:null, id:null }; // mode:'buy'|'sell'
+
+function setEditMode(mode, id){
+  editingTx = { mode, id };
+  if(mode === 'buy'){
+    $('#buySubmitBtn').textContent = 'อัปเดตรายการซื้อ';
+    $('#buySubmitBtn').classList.add('bg-amber-300','text-black');
+    $('#buySubmitBtn').classList.remove('bg-white');
+    $('#buyResetBtn').textContent = 'ยกเลิกแก้ไข';
+  }else{
+    $('#sellSubmitBtn').textContent = 'อัปเดตรายการขาย';
+    $('#sellSubmitBtn').classList.add('bg-amber-300','text-black');
+    $('#sellSubmitBtn').classList.remove('bg-white');
+    $('#sellResetBtn').textContent = 'ยกเลิกแก้ไข';
+  }
+}
+function clearEditMode(mode){
+  if(mode === 'buy'){
+    $('#buySubmitBtn').textContent = 'บันทึกการซื้อ';
+    $('#buySubmitBtn').classList.remove('bg-amber-300','text-black');
+    $('#buySubmitBtn').classList.add('bg-white');
+    $('#buyResetBtn').textContent = 'เคลียร์';
+  }else{
+    $('#sellSubmitBtn').textContent = 'บันทึกการขาย';
+    $('#sellSubmitBtn').classList.remove('bg-amber-300','text-black');
+    $('#sellSubmitBtn').classList.add('bg-white');
+    $('#sellResetBtn').textContent = 'เคลียร์';
+  }
+  editingTx = { mode:null, id:null };
+}
+function fillFormFromTx(mode, tx){
+  if(mode==='buy'){
+    $('#buyDate').value = toISODateClient(tx.date);
+    if(tx.store && !stores.includes(tx.store)){ stores.push(tx.store); saveToStorage(); refreshStoreCustomer(); }
+    $('#buyStore').value = tx.store || stores[0] || '';
+
+    $('#buyItems').innerHTML='';
+    (tx.items||[]).forEach(it=> $('#buyItems').appendChild(makeItemRow('buy', it)) );
+    ensureOneRow('buyItems','buy');
+  }else{
+    $('#sellDate').value = toISODateClient(tx.date);
+    if(tx.customer && !customers.includes(tx.customer)){ customers.push(tx.customer); saveToStorage(); refreshStoreCustomer(); }
+    $('#sellCustomer').value = tx.customer || customers[0] || '';
+
+    $('#sellItems').innerHTML='';
+    (tx.items||[]).forEach(it=> $('#sellItems').appendChild(makeItemRow('sell', it)) );
+    ensureOneRow('sellItems','sell');
+  }
+}
+
 /* ================== BUY Submit ================== */
 $('#addBuyItem').addEventListener('click', ()=>$('#buyItems').appendChild(makeItemRow('buy')));
-$('#buyResetBtn').addEventListener('click', ()=>{ $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy'); });
+
+$('#buyResetBtn').addEventListener('click', ()=>{
+  if(editingTx.mode==='buy'){
+    clearEditMode('buy');
+    $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy');
+    return;
+  }
+  $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy');
+});
 
 $('#buySubmitBtn').addEventListener('click', async ()=>{
   if(submitLocks.buy) return;
   const date = toISODateClient($('#buyDate').value);
   const store = $('#buyStore').value;
+
   const items = [...$('#buyItems').children].map(div=>{
     const name=div.querySelector('.product-name').value.trim();
     const pid=div.querySelector('.product-name').dataset.productId||'';
@@ -586,20 +668,35 @@ $('#buySubmitBtn').addEventListener('click', async ()=>{
   }).filter(Boolean);
 
   if(!date || !store || !items.length) return alert('กรอกข้อมูลให้ครบ');
-  const total = items.reduce((s,i)=>s+i.total,0);
-  const tx = { id: uid('b_'), date, store, items, total };
 
-  const h = objHash(tx);
+  const total = items.reduce((s,i)=>s+i.total,0);
+  const tx = {
+    id: (editingTx.mode==='buy' ? editingTx.id : uid('b_')),
+    date, store, items, total
+  };
+
+  const h = objHash({ ...tx, _edit: editingTx.mode==='buy' });
   if(h === lastHash.buy) return alert('คุณเพิ่งบันทึกรายการนี้ไปแล้ว');
   lastHash.buy = h;
 
   submitLocks.buy=true; $('#buySubmitBtn').disabled=true;
-  buyTransactions.push(tx); saveToStorage();
-  const ok = await syncNow('buy-save');
+
+  if(editingTx.mode==='buy'){
+    const idx = buyTransactions.findIndex(t=>t.id===editingTx.id);
+    if(idx>=0) buyTransactions[idx] = tx;
+    else buyTransactions.push(tx);
+  }else{
+    buyTransactions.push(tx);
+  }
+
+  saveToStorage();
+  const ok = await syncNow(editingTx.mode==='buy' ? 'buy-update' : 'buy-save');
+
   submitLocks.buy=false; $('#buySubmitBtn').disabled=false;
 
   if(ok){
-    alert('บันทึกการซื้อเรียบร้อย');
+    alert(editingTx.mode==='buy' ? 'อัปเดตรายการซื้อเรียบร้อย' : 'บันทึกการซื้อเรียบร้อย');
+    if(editingTx.mode==='buy') clearEditMode('buy');
     $('#buyItems').innerHTML=''; ensureOneRow('buyItems','buy');
     renderSummary();
   }
@@ -607,12 +704,21 @@ $('#buySubmitBtn').addEventListener('click', async ()=>{
 
 /* ================== SELL Submit ================== */
 $('#addSellItem').addEventListener('click', ()=>$('#sellItems').appendChild(makeItemRow('sell')));
-$('#sellResetBtn').addEventListener('click', ()=>{ $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell'); });
+
+$('#sellResetBtn').addEventListener('click', ()=>{
+  if(editingTx.mode==='sell'){
+    clearEditMode('sell');
+    $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell');
+    return;
+  }
+  $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell');
+});
 
 $('#sellSubmitBtn').addEventListener('click', async ()=>{
   if(submitLocks.sell) return;
   const date = toISODateClient($('#sellDate').value);
   const customer = $('#sellCustomer').value;
+
   const items = [...$('#sellItems').children].map(div=>{
     const name=div.querySelector('.product-name').value.trim();
     const pid=div.querySelector('.product-name').dataset.productId||'';
@@ -624,20 +730,35 @@ $('#sellSubmitBtn').addEventListener('click', async ()=>{
   }).filter(Boolean);
 
   if(!date || !customer || !items.length) return alert('กรอกข้อมูลให้ครบ');
-  const total = items.reduce((s,i)=>s+i.total,0);
-  const tx = { id: uid('s_'), date, customer, items, total };
 
-  const h = objHash(tx);
+  const total = items.reduce((s,i)=>s+i.total,0);
+  const tx = {
+    id: (editingTx.mode==='sell' ? editingTx.id : uid('s_')),
+    date, customer, items, total
+  };
+
+  const h = objHash({ ...tx, _edit: editingTx.mode==='sell' });
   if(h === lastHash.sell) return alert('คุณเพิ่งบันทึกรายการนี้ไปแล้ว');
   lastHash.sell = h;
 
   submitLocks.sell=true; $('#sellSubmitBtn').disabled=true;
-  sellTransactions.push(tx); saveToStorage();
-  const ok = await syncNow('sell-save');
+
+  if(editingTx.mode==='sell'){
+    const idx = sellTransactions.findIndex(t=>t.id===editingTx.id);
+    if(idx>=0) sellTransactions[idx] = tx;
+    else sellTransactions.push(tx);
+  }else{
+    sellTransactions.push(tx);
+  }
+
+  saveToStorage();
+  const ok = await syncNow(editingTx.mode==='sell' ? 'sell-update' : 'sell-save');
+
   submitLocks.sell=false; $('#sellSubmitBtn').disabled=false;
 
   if(ok){
-    alert('บันทึกการขายเรียบร้อย');
+    alert(editingTx.mode==='sell' ? 'อัปเดตรายการขายเรียบร้อย' : 'บันทึกการขายเรียบร้อย');
+    if(editingTx.mode==='sell') clearEditMode('sell');
     $('#sellItems').innerHTML=''; ensureOneRow('sellItems','sell');
     renderSummary();
   }
@@ -817,7 +938,24 @@ function renderSummary(){
   $('#sellHistory').innerHTML = sellRows || `<tr><td colspan="4" class="p-2 text-center text-slate-500">ไม่มีรายการ</td></tr>`;
 }
 
-window.loadTxToForm = (mode,id)=>alert('ฟังก์ชันแก้ไขในประวัติ (ยกไว้ก่อน) — ถ้าต้องการให้ครบเหมือนเวอร์ชันเดิม บอกได้ เดี๋ยวผมใส่ให้กลับแบบเต็มๆ');
+window.loadTxToForm = (mode,id)=>{
+  const tx = (mode==='buy')
+    ? buyTransactions.find(t=>t.id===id)
+    : sellTransactions.find(t=>t.id===id);
+
+  if(!tx) return alert('ไม่พบรายการที่ต้องการแก้ไข');
+
+  // สลับแท็บไปหน้าแก้ไข
+  $$('.tab-btn').forEach(b=>b.classList.remove('active'));
+  const tabBtn = $(`.tab-btn[data-tab="${mode==='buy'?'buy':'sell'}"]`);
+  tabBtn?.classList.add('active');
+  $$('.tabpane').forEach(p=>p.classList.add('hidden'));
+  $('#'+(mode==='buy'?'buy':'sell')).classList.remove('hidden');
+
+  fillFormFromTx(mode, tx);
+  setEditMode(mode, id);
+};
+
 window.deleteTx = async (mode,id)=>{
   if(!confirm('ลบรายการนี้?')) return;
   if(mode==='buy') buyTransactions = buyTransactions.filter(t=>t.id!==id);
@@ -895,14 +1033,13 @@ $('#exportCustomPdf').addEventListener('click', ()=>{
   const {arrP,arrC,arrA,totalQty,totalAmt,items} = aggForMonth(mode,month);
   const itemsFiltered = (filter==='actor' && actorPick!=='__ALL__') ? items.filter(i=> i._actor===actorPick ) : items;
 
-  // ✅ helper: ถ้าไม่แสดงยอดเงิน -> ลบคอลัมน์สุดท้าย (ยอดรวม) ออกจริง
   const addTable=(head, body)=> {
     let h = [...head];
     let b = body.map(r=>[...r]);
 
     if(!showMoney){
-      h = h.slice(0, -1);           // ลบหัวคอลัมน์ยอดรวม
-      b = b.map(r => r.slice(0, h.length)); // ลบค่าคอลัมน์ยอดรวม
+      h = h.slice(0, -1);
+      b = b.map(r => r.slice(0, h.length));
     }
 
     doc.autoTable({
@@ -956,7 +1093,6 @@ $('#exportCustomPdf').addEventListener('click', ()=>{
     addTable(['สินค้า (VAT)','หมวดหมู่','จำนวน','ยอดรวม'], rows);
   }
 
-  // ✅ ตารางสรุปท้าย: ถ้าไม่แสดงเงิน -> เหลือแค่ 2 คอลัมน์
   addTable(['รวมทั้งเดือน','จำนวนรวม','ยอดรวม'],
     [[mode==='buy'?'ซื้อ':'ขาย', totalQty.toLocaleString('th-TH'), formatCurrency(totalAmt)]]);
 
