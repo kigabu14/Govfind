@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Plug2Plug POS — Single File</title>
-
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -35,7 +35,7 @@
     </div>
 
     <div class="flex flex-wrap gap-2 items-center">
-      <input id="scriptUrl" type="url" placeholder="วาง Google Apps Script Web App URL (/exec)" class="field w-80" />
+      <input id="scriptUrl" type="url" placeholder="วาง Google Apps Script Web App URL (/exec)" class="field w-80" /> 
       <button id="setupBtn" class="btn bg-blue-600 hover:bg-blue-500">⚙️ ตั้งค่า</button>
       <button id="loadBtn" class="btn bg-emerald-600 hover:bg-emerald-500">📥 โหลด</button>
       <button id="syncBtn" class="btn bg-purple-600 hover:bg-purple-500">📊 Sync</button>
@@ -43,6 +43,7 @@
       <button id="fontBtn" class="btn bg-indigo-700 hover:bg-indigo-600">🅰️ ฟอนต์ PDF ไทย</button>
 
       <button id="exportBtn" class="btn bg-sky-700 hover:bg-sky-600">⬇️ Export JSON</button>
+		<button id="exportXlsxBtn" class="btn bg-green-700 hover:bg-green-600">⬇️ Export Excel (รายงาน)</button>
       <label class="btn bg-amber-700 hover:bg-amber-600 cursor-pointer">
         ⬆️ Import JSON
         <input id="importInput" type="file" accept="application/json" class="hidden"/>
@@ -1091,7 +1092,230 @@ $('#fontFile').addEventListener('change', async (e)=>{
     e.target.value = '';
   }
 });
+/* ================== Export Excel (Report-style like Server PDF) ================== */
+function safeSheetName(name){
+  return String(name||'Sheet').replace(/[\[\]\*\/\\\?\:]/g,' ').slice(0,31) || 'Sheet';
+}
+function downloadBlob(blob, filename){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+function nfmt(n){ return Number(n||0); }
+function thbStr(n){ return new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB'}).format(Number(n)||0); }
 
+function getReportOptions(){
+  // Prefer "Reports" tab selections; fallback to Summary selections
+  const month = ($('#reportMonth')?.value) || ($('#sumMonth')?.value) || new Date().toISOString().slice(0,7);
+  const mode  = ($('#reportMode')?.value)  || ($('#sumMode')?.value)  || 'buy';
+  const filter= ($('#reportFilter')?.value)|| ($('#pdfFilter')?.value)|| 'all';
+
+  // actor: reports uses text input, summary uses dropdown
+  const actorText = ($('#reportActor')?.value || '').trim();
+  const actorPick = ($('#actorSelect')?.value || '__ALL__');
+  const actor = actorText || (filter==='actor' && actorPick!=='__ALL__' ? actorPick : '');
+
+  const showMoney = ($('#pdfShowMoney')?.checked ?? true); // ใช้ checkbox เดียวกับ PDF ฝั่งบราวเซอร์
+  return { month, mode, filter, actor, showMoney };
+}
+
+function buildReportTables({month, mode, filter, actor, showMoney}){
+  // ดึงข้อมูลเดือนนั้นๆ
+  const cur = aggForMonth(mode, month);
+
+  // ฟิลเตอร์ actor (ร้าน/ลูกค้า)
+  let items = cur.items;
+  if(filter==='actor' && actor){
+    items = items.filter(i => i._actor === actor);
+  }
+
+  // 1) ตารางตามสินค้า (เหมือน PDF ฝั่งบราวเซอร์/เซิร์ฟเวอร์)
+  let tableByProduct = [];
+  if(filter==='all'){
+    tableByProduct = cur.arrP.map(r=>({
+      product: r.productName,
+      category: r.category,
+      qty: r.qty,
+      amount: r.amount
+    }));
+  }else if(filter==='actor'){
+    // ถ้าเลือก actor เฉพาะ: ทำ breakdown ตามสินค้าเฉพาะ actor นั้น
+    if(actor){
+      const byP = new Map();
+      items.forEach(i=>{
+        const k=i.productName;
+        if(!byP.has(k)) byP.set(k,{
+          product:k,
+          category:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ',
+          qty:0,
+          amount:0
+        });
+        const x=byP.get(k);
+        x.qty += Number(i.quantity||0);
+        x.amount += Number(i.total||0);
+      });
+      tableByProduct = [...byP.values()].sort((a,b)=>b.amount-a.amount);
+    }else{
+      // ถ้าไม่ได้ระบุ actor -> เหมือน “ตามร้าน/ลูกค้า” (จะไปอยู่ชีต actor)
+      tableByProduct = cur.arrP.map(r=>({
+        product: r.productName,
+        category: r.category,
+        qty: r.qty,
+        amount: r.amount
+      }));
+    }
+  }else if(filter==='category'){
+    // ชีตสินค้าให้ว่าง (เพราะเน้นหมวด)
+    tableByProduct = [];
+  }else if(filter==='vat'){
+    const vatItems = items.filter(i=>i.hasVat);
+    const byP = new Map();
+    vatItems.forEach(i=>{
+      const k=i.productName;
+      if(!byP.has(k)) byP.set(k,{
+        product:k,
+        category:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ',
+        qty:0,
+        amount:0
+      });
+      const x=byP.get(k);
+      x.qty += Number(i.quantity||0);
+      x.amount += Number(i.total||0);
+    });
+    tableByProduct = [...byP.values()].sort((a,b)=>b.amount-a.amount);
+  }
+
+  // 2) ตารางตามหมวดหมู่
+  let tableByCategory = [];
+  if(filter==='category' || filter==='all'){
+    tableByCategory = cur.arrC.map(r=>({
+      category: r.category,
+      qty: r.qty,
+      amount: r.amount
+    }));
+  }else if(filter==='vat'){
+    // สรุปหมวดจาก vatItems
+    const vatItems = items.filter(i=>i.hasVat);
+    const byC = new Map();
+    vatItems.forEach(i=>{
+      const cat=(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ';
+      if(!byC.has(cat)) byC.set(cat,{category:cat, qty:0, amount:0});
+      const x=byC.get(cat);
+      x.qty += Number(i.quantity||0);
+      x.amount += Number(i.total||0);
+    });
+    tableByCategory = [...byC.values()].sort((a,b)=>b.amount-a.amount);
+  }else{
+    tableByCategory = cur.arrC.map(r=>({
+      category: r.category,
+      qty: r.qty,
+      amount: r.amount
+    }));
+  }
+
+  // 3) ตารางตามร้าน/ลูกค้า (Actor)
+  const actorLabel = (mode==='buy') ? 'store' : 'customer';
+  const actorTitle = (mode==='buy') ? 'ร้าน' : 'ลูกค้า';
+
+  let tableByActor = [];
+  if(filter==='actor'){
+    if(actor){
+      // รายเดียว: ทำแถวเดียวเหมือน PDF
+      const amt = items.reduce((s,i)=>s+Number(i.total||0),0);
+      tableByActor = [{ [actorLabel]: actor, amount: amt }];
+    }else{
+      tableByActor = cur.arrA.map(r=>({ [actorLabel]: r.actor, amount: r.amount }));
+    }
+  }else{
+    tableByActor = cur.arrA.map(r=>({ [actorLabel]: r.actor, amount: r.amount }));
+  }
+
+  // Summary line
+  const totalQty = items.reduce((s,i)=>s+Number(i.quantity||0),0);
+  const totalAmt = items.reduce((s,i)=>s+Number(i.total||0),0);
+  const vatAmt   = items.filter(i=>i.hasVat).reduce((s,i)=>s+Number(i.total||0)*0.07,0);
+
+  // ถ้าไม่แสดงเงิน -> ตัดคอลัมน์ amount ออก “จริง”
+  if(!showMoney){
+    tableByProduct = tableByProduct.map(r=>({ product:r.product, category:r.category, qty:r.qty }));
+    tableByCategory= tableByCategory.map(r=>({ category:r.category, qty:r.qty }));
+    tableByActor   = tableByActor.map(r=>({
+      [actorLabel]: r[actorLabel],
+    }));
+  }else{
+    // ใส่ amount เป็นตัวเลข (Excel จะ sum/pivot ได้)
+    tableByProduct = tableByProduct.map(r=>({ ...r, amount:nfmt(r.amount) }));
+    tableByCategory= tableByCategory.map(r=>({ ...r, amount:nfmt(r.amount) }));
+    tableByActor   = tableByActor.map(r=>({ ...r, amount:nfmt(r.amount) }));
+  }
+
+  const sheetMeta = [
+    { key:'เดือน', value: month },
+    { key:'โหมด', value: mode==='buy'?'ซื้อ':'ขาย' },
+    { key:'ฟิลเตอร์', value: filter },
+    { key:`${actorTitle}(ถ้ามี)`, value: actor || '' },
+    { key:'จำนวนรวม', value: totalQty },
+    ...(showMoney ? [
+      { key:'ยอดรวม', value: totalAmt },
+      { key:'VAT รวม (ประมาณ)', value: vatAmt },
+    ] : [])
+  ];
+
+  return {
+    meta: sheetMeta,
+    byProduct: tableByProduct,
+    byCategory: tableByCategory,
+    byActor: tableByActor,
+    actorTitle,
+    actorLabel,
+    totals: { totalQty, totalAmt, vatAmt }
+  };
+}
+
+function exportExcelReportLikePDF(){
+  if(!window.XLSX){
+    alert('ยังโหลดไลบรารี XLSX ไม่สำเร็จ (เช็คว่าใส่ xlsx.full.min.js แล้ว)');
+    return;
+  }
+
+  prepareSnapshot();
+  const opt = getReportOptions();
+  const rpt = buildReportTables(opt);
+
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 0: META (ตัวเลือก + summary)
+  const wsMeta = XLSX.utils.json_to_sheet(rpt.meta);
+  XLSX.utils.book_append_sheet(wb, wsMeta, safeSheetName('REPORT_META'));
+
+  // Sheet 1: BY PRODUCT
+  const wsP = XLSX.utils.json_to_sheet(rpt.byProduct.length ? rpt.byProduct : [{note:'ไม่มีข้อมูลตามเงื่อนไขนี้'}]);
+  XLSX.utils.book_append_sheet(wb, wsP, safeSheetName('PAGE1_PRODUCTS'));
+
+  // Sheet 2: BY CATEGORY
+  const wsC = XLSX.utils.json_to_sheet(rpt.byCategory.length ? rpt.byCategory : [{note:'ไม่มีข้อมูลตามเงื่อนไขนี้'}]);
+  XLSX.utils.book_append_sheet(wb, wsC, safeSheetName('PAGE2_CATEGORIES'));
+
+  // Sheet 3: BY ACTOR
+  const actorSheetName = `PAGE3_${rpt.actorTitle}`;
+  const wsA = XLSX.utils.json_to_sheet(rpt.byActor.length ? rpt.byActor : [{note:'ไม่มีข้อมูลตามเงื่อนไขนี้'}]);
+  XLSX.utils.book_append_sheet(wb, wsA, safeSheetName(actorSheetName));
+
+  const file = `Report_${opt.mode==='buy'?'BUY':'SELL'}_${opt.month}_${opt.filter}${opt.actor?('_'+opt.actor):''}${opt.showMoney?'':'_noMoney'}.xlsx`;
+  const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  downloadBlob(
+    new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
+    file
+  );
+
+  setSyncStatus('Export Excel (รายงาน) สำเร็จ ✅','text-emerald-400');
+}
+
+$('#exportXlsxBtn')?.addEventListener('click', exportExcelReportLikePDF);
 /* ================== Build Initial UI ================== */
 function refreshAllUI(){
   refreshStoreCustomer();
