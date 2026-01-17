@@ -1210,7 +1210,11 @@ function buildReportTables({month, mode, filter, actor, showMoney}){
     totals:{ totalQty, totalAmt, vatAmt }
   };
 }
-
+function safeSheetName(name){
+  return String(name || 'Sheet')
+    .replace(/[\[\]\*\/\\\?\:]/g,' ')
+    .slice(0,31) || 'Sheet';
+}
 function exportExcelOneSheetPretty(){
   if(!window.XLSX){
     alert('ยังโหลดไลบรารี XLSX ไม่สำเร็จ (เช็คว่าใส่ xlsx.full.min.js แล้ว)');
@@ -1335,9 +1339,14 @@ function exportExcelOneSheetPretty(){
 
   setSyncStatus('Export Excel (ชีตเดียว) สำเร็จ ✅','text-emerald-400');
 }
-
-$('#exportXlsxBtn')?.addEventListener('click', exportExcelOneSheetPretty);
-/* ================== Build Initial UI ================== */
+$('#exportXlsxBtn')?.addEventListener('click', ()=>{
+  try{
+    exportExcelOneSheetPretty();
+  }catch(e){
+    console.error(e);
+    alert('Export Excel พัง: ' + (e?.message || e));
+  }
+});/* ================== Build Initial UI ================== */
 function refreshAllUI(){
   refreshStoreCustomer();
   refreshCategories();
