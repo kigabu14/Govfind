@@ -1106,13 +1106,17 @@ function downloadBlob(blob, filename){
 function n(nv){ return Number(nv||0); }
 
 function getReportOptions(){
-  const month = ($('#reportMonth')?.value) || ($('#sumMonth')?.value) || new Date().toISOString().slice(0,7);
-  const mode  = ($('#reportMode')?.value)  || ($('#sumMode')?.value)  || 'buy';
-  const filter= ($('#reportFilter')?.value)|| ($('#pdfFilter')?.value)|| 'all';
+  // ใช้ตัวเลือกจากหน้า Summary ให้เหมือน PDF เป๊ะ
+  const month = ($('#sumMonth')?.value) || new Date().toISOString().slice(0,7);
+  const mode  = ($('#sumMode')?.value)  || 'buy';
+  const filter= ($('#pdfFilter')?.value)|| 'all';
 
-  const actorText = ($('#reportActor')?.value || '').trim();
-  const actorPick = ($('#actorSelect')?.value || '__ALL__');
-  const actor = actorText || (filter==='actor' && actorPick!=='__ALL__' ? actorPick : '');
+  // actor: ใช้ dropdown ใน summary (actorSelect) ถ้าเปิด filter actor
+  let actor = '';
+  if(filter === 'actor'){
+    const pick = $('#actorSelect')?.value || '__ALL__';
+    actor = (pick !== '__ALL__') ? pick : '';
+  }
 
   const showMoney = ($('#pdfShowMoney')?.checked ?? true);
   return { month, mode, filter, actor, showMoney };
@@ -1120,93 +1124,76 @@ function getReportOptions(){
 
 function buildReportTables({month, mode, filter, actor, showMoney}){
   const cur = aggForMonth(mode, month);
+
+  // ใช้ items แล้ว apply filter เหมือน PDF
   let items = cur.items;
 
   if(filter==='actor' && actor){
     items = items.filter(i => i._actor === actor);
   }
-
-  // ===== by product
-  let byProduct = [];
-  if(filter==='all'){
-    byProduct = cur.arrP.map(r=>({สินค้า:r.productName, หมวด:r.category, จำนวน:r.qty, ยอด:r.amount}));
-  }else if(filter==='category'){
-    byProduct = []; // เน้นหมวด
-  }else if(filter==='vat'){
-    const vatItems = items.filter(i=>i.hasVat);
-    const byP=new Map();
-    vatItems.forEach(i=>{
-      const k=i.productName;
-      if(!byP.has(k)) byP.set(k,{สินค้า:k, หมวด:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ', จำนวน:0, ยอด:0});
-      const x=byP.get(k); x.จำนวน+=n(i.quantity); x.ยอด+=n(i.total);
-    });
-    byProduct=[...byP.values()].sort((a,b)=>b.ยอด-a.ยอด);
-  }else if(filter==='actor'){
-    if(actor){
-      const byP=new Map();
-      items.forEach(i=>{
-        const k=i.productName;
-        if(!byP.has(k)) byP.set(k,{สินค้า:k, หมวด:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ', จำนวน:0, ยอด:0});
-        const x=byP.get(k); x.จำนวน+=n(i.quantity); x.ยอด+=n(i.total);
-      });
-      byProduct=[...byP.values()].sort((a,b)=>b.ยอด-a.ยอด);
-    }else{
-      byProduct = cur.arrP.map(r=>({สินค้า:r.productName, หมวด:r.category, จำนวน:r.qty, ยอด:r.amount}));
-    }
+  if(filter==='vat'){
+    items = items.filter(i => i.hasVat);
   }
 
-  // ===== by category
-  let byCategory = [];
-  if(filter==='category' || filter==='all'){
-    byCategory = cur.arrC.map(r=>({หมวดหมู่:r.category, จำนวน:r.qty, ยอด:r.amount}));
-  }else if(filter==='vat'){
-    const vatItems = items.filter(i=>i.hasVat);
-    const byC=new Map();
-    vatItems.forEach(i=>{
-      const cat=(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ';
-      if(!byC.has(cat)) byC.set(cat,{หมวดหมู่:cat, จำนวน:0, ยอด:0});
-      const x=byC.get(cat); x.จำนวน+=n(i.quantity); x.ยอด+=n(i.total);
-    });
-    byCategory=[...byC.values()].sort((a,b)=>b.ยอด-a.ยอด);
-  }else{
-    byCategory = cur.arrC.map(r=>({หมวดหมู่:r.category, จำนวน:r.qty, ยอด:r.amount}));
-  }
+  // สร้าง arrP/arrC/arrA ใหม่จาก items ที่ถูกกรองแล้ว (สำคัญมาก)
+  const byProduct = new Map();
+  items.forEach(i=>{
+    const k=i.productName;
+    const cat=(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ';
+    if(!byProduct.has(k)) byProduct.set(k,{productName:k, category:cat, qty:0, amount:0});
+    const x=byProduct.get(k);
+    x.qty += Number(i.quantity||0);
+    x.amount += Number(i.total||0);
+  });
 
-  // ===== by actor
+  const byCategory = new Map();
+  [...byProduct.values()].forEach(p=>{
+    if(!byCategory.has(p.category)) byCategory.set(p.category,{category:p.category, qty:0, amount:0});
+    const x=byCategory.get(p.category);
+    x.qty += p.qty;
+    x.amount += p.amount;
+  });
+
+  const byActor = new Map();
+  items.forEach(i=>{
+    const a=i._actor||'ไม่ระบุ';
+    if(!byActor.has(a)) byActor.set(a,{actor:a, amount:0});
+    byActor.get(a).amount += Number(i.total||0);
+  });
+
+  // total (หลังกรอง)
+  const totalQty = items.reduce((s,i)=>s+Number(i.quantity||0),0);
+  const totalAmt = items.reduce((s,i)=>s+Number(i.total||0),0);
+  const vatAmt = items.filter(i=>i.hasVat).reduce((s,i)=>s+Number(i.total||0)*0.07,0);
+
+  // ตอนนี้ค่อย map เป็นตารางที่ export
+  let outByProduct = [...byProduct.values()].sort((a,b)=>b.amount-a.amount)
+    .map(r=>({สินค้า:r.productName, หมวด:r.category, จำนวน:r.qty, ยอด:r.amount}));
+
+  let outByCategory = [...byCategory.values()].sort((a,b)=>b.amount-a.amount)
+    .map(r=>({หมวดหมู่:r.category, จำนวน:r.qty, ยอด:r.amount}));
+
   const actorTitle = (mode==='buy') ? 'ร้าน' : 'ลูกค้า';
-  const actorKey   = (mode==='buy') ? 'ร้าน' : 'ลูกค้า';
-  let byActor = [];
+  const actorKey   = actorTitle;
 
-  if(filter==='actor'){
-    if(actor){
-      const amt = items.reduce((s,i)=>s+n(i.total),0);
-      byActor = [{ [actorKey]: actor, ยอด: amt }];
-    }else{
-      byActor = cur.arrA.map(r=>({ [actorKey]: r.actor, ยอด: r.amount }));
-    }
-  }else{
-    byActor = cur.arrA.map(r=>({ [actorKey]: r.actor, ยอด: r.amount }));
-  }
+  let outByActor = [...byActor.values()].sort((a,b)=>b.amount-a.amount)
+    .map(r=>({[actorKey]: r.actor, ยอด: r.amount}));
 
-  const totalQty = items.reduce((s,i)=>s+n(i.quantity),0);
-  const totalAmt = items.reduce((s,i)=>s+n(i.total),0);
-  const vatAmt   = items.filter(i=>i.hasVat).reduce((s,i)=>s+n(i.total)*0.07,0);
+  // ถ้า filter=category ให้ “ตารางตามสินค้า” ว่าง (เหมือนแนวรายงาน)
+  if(filter==='category') outByProduct = [];
 
   // ถ้าไม่โชว์เงิน -> ตัดคอลัมน์ยอดออกจริง
   if(!showMoney){
-    byProduct = byProduct.map(r=>({สินค้า:r.สินค้า, หมวด:r.หมวด, จำนวน:r.จำนวน}));
-    byCategory= byCategory.map(r=>({หมวดหมู่:r.หมวดหมู่, จำนวน:r.จำนวน}));
-    byActor   = byActor.map(r=>({[actorKey]: r[actorKey]}));
-  }else{
-    // ให้ยอดเป็น number (Excel sum/pivot ได้)
-    byProduct = byProduct.map(r=>({...r, ยอด:n(r.ยอด)}));
-    byCategory= byCategory.map(r=>({...r, ยอด:n(r.ยอด)}));
-    byActor   = byActor.map(r=>({...r, ยอด:n(r.ยอด)}));
+    outByProduct = outByProduct.map(r=>({สินค้า:r.สินค้า, หมวด:r.หมวด, จำนวน:r.จำนวน}));
+    outByCategory= outByCategory.map(r=>({หมวดหมู่:r.หมวดหมู่, จำนวน:r.จำนวน}));
+    outByActor   = outByActor.map(r=>({[actorKey]: r[actorKey]}));
   }
 
   return {
     actorTitle, actorKey,
-    byProduct, byCategory, byActor,
+    byProduct: outByProduct,
+    byCategory: outByCategory,
+    byActor: outByActor,
     totals:{ totalQty, totalAmt, vatAmt }
   };
 }
