@@ -8,7 +8,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body{background:#0b1220;color:#fff}
     .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px}
@@ -43,6 +43,7 @@
       <button id="fontBtn" class="btn bg-indigo-700 hover:bg-indigo-600">🅰️ ฟอนต์ PDF ไทย</button>
 
       <button id="exportBtn" class="btn bg-sky-700 hover:bg-sky-600">⬇️ Export JSON</button>
+      <button id="exportXlsxBtn" class="btn bg-green-700 hover:bg-green-600">⬇️ Export Excel (รายงาน+รายการของ)</button>
       <label class="btn bg-amber-700 hover:bg-amber-600 cursor-pointer">
         ⬆️ Import JSON
         <input id="importInput" type="file" accept="application/json" class="hidden"/>
@@ -1227,7 +1228,321 @@ $('#fontFile').addEventListener('change', async (e)=>{
     e.target.value = '';
   }
 });
+/* ================== Export Excel (ONE SHEET / Pretty Report + Detail Items) ================== */
+function downloadBlob(blob, filename){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+function n(x){ return Number(x||0); }
 
+function getReportOptions(){
+  const month = ($('#reportMonth')?.value) || ($('#sumMonth')?.value) || new Date().toISOString().slice(0,7);
+  const mode  = ($('#reportMode')?.value)  || ($('#sumMode')?.value)  || 'buy';
+  const filter= ($('#reportFilter')?.value)|| ($('#pdfFilter')?.value)|| 'all';
+
+  const actorText = ($('#reportActor')?.value || '').trim();
+  const actorPick = ($('#actorSelect')?.value || '__ALL__');
+  const actor = actorText || (filter==='actor' && actorPick!=='__ALL__' ? actorPick : '');
+
+  const showMoney = ($('#pdfShowMoney')?.checked ?? true);
+  return { month, mode, filter, actor, showMoney };
+}
+
+function buildReportData(opt){
+  const { month, mode, filter, actor, showMoney } = opt;
+  const cur = aggForMonth(mode, month);
+
+  // items in this month (already includes _actor)
+  let items = cur.items;
+
+  // filter by actor if needed
+  if(filter==='actor' && actor){
+    items = items.filter(i => i._actor === actor);
+  }
+
+  // ===== Summary tables
+  // By Product
+  let byProduct = [];
+  if(filter==='category'){
+    byProduct = [];
+  } else if(filter==='vat'){
+    const vatItems = items.filter(i=>i.hasVat);
+    const byP=new Map();
+    vatItems.forEach(i=>{
+      const k=i.productName;
+      if(!byP.has(k)) byP.set(k,{สินค้า:k, หมวด:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ', จำนวน:0, ยอด:0});
+      const x=byP.get(k); x.จำนวน+=n(i.quantity); x.ยอด+=n(i.total);
+    });
+    byProduct=[...byP.values()].sort((a,b)=>b.ยอด-a.ยอด);
+  } else if(filter==='actor' && actor){
+    const byP=new Map();
+    items.forEach(i=>{
+      const k=i.productName;
+      if(!byP.has(k)) byP.set(k,{สินค้า:k, หมวด:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ', จำนวน:0, ยอด:0});
+      const x=byP.get(k); x.จำนวน+=n(i.quantity); x.ยอด+=n(i.total);
+    });
+    byProduct=[...byP.values()].sort((a,b)=>b.ยอด-a.ยอด);
+  } else {
+    byProduct = cur.arrP.map(r=>({สินค้า:r.productName, หมวด:r.category, จำนวน:r.qty, ยอด:r.amount}));
+  }
+
+  // By Category
+  let byCategory = [];
+  if(filter==='vat'){
+    const vatItems = items.filter(i=>i.hasVat);
+    const byC=new Map();
+    vatItems.forEach(i=>{
+      const cat=(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ';
+      if(!byC.has(cat)) byC.set(cat,{หมวดหมู่:cat, จำนวน:0, ยอด:0});
+      const x=byC.get(cat); x.จำนวน+=n(i.quantity); x.ยอด+=n(i.total);
+    });
+    byCategory=[...byC.values()].sort((a,b)=>b.ยอด-a.ยอด);
+  } else {
+    byCategory = cur.arrC.map(r=>({หมวดหมู่:r.category, จำนวน:r.qty, ยอด:r.amount}));
+  }
+
+  // By Actor
+  const actorTitle = (mode==='buy') ? 'ร้าน' : 'ลูกค้า';
+  const actorKeyTH = (mode==='buy') ? 'ร้าน' : 'ลูกค้า';
+
+  let byActor = [];
+  if(filter==='actor'){
+    if(actor){
+      const amt = items.reduce((s,i)=>s+n(i.total),0);
+      byActor = [{ [actorKeyTH]: actor, ยอด: amt }];
+    }else{
+      byActor = cur.arrA.map(r=>({ [actorKeyTH]: r.actor, ยอด: r.amount }));
+    }
+  }else{
+    byActor = cur.arrA.map(r=>({ [actorKeyTH]: r.actor, ยอด: r.amount }));
+  }
+
+  // ===== Totals (based on filtered items)
+  const totalQty = items.reduce((s,i)=>s+n(i.quantity),0);
+  const totalAmt = items.reduce((s,i)=>s+n(i.total),0);
+  const vatAmt   = items.filter(i=>i.hasVat).reduce((s,i)=>s+n(i.total)*0.07,0);
+
+  // ===== Detail lines (รายการของ)
+  // We need to map each item back to its transaction date & actor; cur.items already has _actor
+  // But it doesn't include tx.id and tx.date directly in cur.items. We'll rebuild from transactions for accuracy.
+  const txSource = (mode==='buy') ? buyTransactions : sellTransactions;
+  const actorField = (mode==='buy') ? 'store' : 'customer';
+
+  const detailLines = [];
+  txSource
+    .filter(t => monthKeyFromDate(t.date)===month)
+    .forEach(t=>{
+      const actorName = t[actorField] || '';
+      if(filter==='actor' && actor && actorName !== actor) return;
+
+      (t.items||[]).forEach(it=>{
+        if(filter==='vat' && !it.hasVat) return;
+
+        const prod = products.find(p=>String(p.id)===String(it.productId)) || {};
+        detailLines.push({
+          วันที่: t.date,
+          [actorKeyTH]: actorName,
+          สินค้า: it.productName,
+          หมวด: prod.category || 'ไม่ระบุ',
+          จำนวน: n(it.quantity),
+          ราคา: n(it.price),
+          ยอด: n(it.total || (n(it.quantity)*n(it.price))),
+          VAT: it.hasVat ? 'VAT' : ''
+        });
+      });
+    });
+
+  // ===== If showMoney false: remove money columns
+  if(!showMoney){
+    byProduct = byProduct.map(r=>({สินค้า:r.สินค้า, หมวด:r.หมวด, จำนวน:r.จำนวน}));
+    byCategory= byCategory.map(r=>({หมวดหมู่:r.หมวดหมู่, จำนวน:r.จำนวน}));
+    byActor   = byActor.map(r=>({[actorKeyTH]: r[actorKeyTH]}));
+    for(const r of detailLines){
+      delete r.ราคา;
+      delete r.ยอด;
+    }
+  }else{
+    // Ensure numbers stay numeric (Excel sums)
+    byProduct = byProduct.map(r=>({...r, ยอด:n(r.ยอด)}));
+    byCategory= byCategory.map(r=>({...r, ยอด:n(r.ยอด)}));
+    byActor   = byActor.map(r=>({...r, ยอด:n(r.ยอด)}));
+  }
+
+  return {
+    actorTitle, actorKeyTH,
+    byProduct, byCategory, byActor,
+    detailLines,
+    totals:{ totalQty, totalAmt, vatAmt },
+  };
+}
+/* ================== Export Excel (ONE SHEET) — FIXED ================== */
+function xlsx_safeSheetName(name){
+  return String(name || 'Sheet').replace(/[\[\]\*\/\\\?\:]/g,' ').slice(0,31) || 'Sheet';
+}
+function xlsx_download(blob, filename){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+function xlsx_n(x){ return Number(x||0); }
+
+function xlsx_getReportOptions(){
+  const month = ($('#reportMonth')?.value) || ($('#sumMonth')?.value) || new Date().toISOString().slice(0,7);
+  const mode  = ($('#reportMode')?.value)  || ($('#sumMode')?.value)  || 'buy';
+  const filter= ($('#reportFilter')?.value)|| ($('#pdfFilter')?.value)|| 'all';
+
+  const actorText = ($('#reportActor')?.value || '').trim();
+  const actorPick = ($('#actorSelect')?.value || '__ALL__');
+  const actor = actorText || (filter==='actor' && actorPick!=='__ALL__' ? actorPick : '');
+
+  const showMoney = ($('#pdfShowMoney')?.checked ?? true);
+  return { month, mode, filter, actor, showMoney };
+}
+
+function xlsx_buildReportTables({month, mode, filter, actor, showMoney}){
+  const cur = aggForMonth(mode, month);
+  let items = cur.items;
+  if(filter==='actor' && actor) items = items.filter(i => i._actor === actor);
+
+  let byProduct=[];
+  if(filter==='category'){
+    byProduct=[];
+  }else if(filter==='vat'){
+    const vatItems=items.filter(i=>i.hasVat);
+    const byP=new Map();
+    vatItems.forEach(i=>{
+      const k=i.productName;
+      if(!byP.has(k)) byP.set(k,{สินค้า:k, หมวด:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ', จำนวน:0, ยอด:0});
+      const x=byP.get(k); x.จำนวน+=xlsx_n(i.quantity); x.ยอด+=xlsx_n(i.total);
+    });
+    byProduct=[...byP.values()].sort((a,b)=>b.ยอด-a.ยอด);
+  }else if(filter==='actor' && actor){
+    const byP=new Map();
+    items.forEach(i=>{
+      const k=i.productName;
+      if(!byP.has(k)) byP.set(k,{สินค้า:k, หมวด:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ', จำนวน:0, ยอด:0});
+      const x=byP.get(k); x.จำนวน+=xlsx_n(i.quantity); x.ยอด+=xlsx_n(i.total);
+    });
+    byProduct=[...byP.values()].sort((a,b)=>b.ยอด-a.ยอด);
+  }else{
+    byProduct = cur.arrP.map(r=>({สินค้า:r.productName, หมวด:r.category, จำนวน:r.qty, ยอด:r.amount}));
+  }
+
+  let byCategory=[];
+  if(filter==='vat'){
+    const vatItems=items.filter(i=>i.hasVat);
+    const byC=new Map();
+    vatItems.forEach(i=>{
+      const cat=(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ';
+      if(!byC.has(cat)) byC.set(cat,{หมวดหมู่:cat, จำนวน:0, ยอด:0});
+      const x=byC.get(cat); x.จำนวน+=xlsx_n(i.quantity); x.ยอด+=xlsx_n(i.total);
+    });
+    byCategory=[...byC.values()].sort((a,b)=>b.ยอด-a.ยอด);
+  }else{
+    byCategory = cur.arrC.map(r=>({หมวดหมู่:r.category, จำนวน:r.qty, ยอด:r.amount}));
+  }
+
+  const actorTitle = (mode==='buy')?'ร้าน':'ลูกค้า';
+  const actorKey   = actorTitle;
+  let byActor=[];
+  if(filter==='actor' && actor){
+    const amt = items.reduce((s,i)=>s+xlsx_n(i.total),0);
+    byActor=[{[actorKey]:actor, ยอด:amt}];
+  }else{
+    byActor = cur.arrA.map(r=>({[actorKey]: r.actor, ยอด:r.amount}));
+  }
+
+  const totalQty = items.reduce((s,i)=>s+xlsx_n(i.quantity),0);
+  const totalAmt = items.reduce((s,i)=>s+xlsx_n(i.total),0);
+  const vatAmt   = items.filter(i=>i.hasVat).reduce((s,i)=>s+xlsx_n(i.total)*0.07,0);
+
+  if(!showMoney){
+    byProduct = byProduct.map(r=>({สินค้า:r.สินค้า, หมวด:r.หมวด, จำนวน:r.จำนวน}));
+    byCategory= byCategory.map(r=>({หมวดหมู่:r.หมวดหมู่, จำนวน:r.จำนวน}));
+    byActor   = byActor.map(r=>({[actorKey]: r[actorKey]}));
+  }else{
+    byProduct = byProduct.map(r=>({...r, ยอด:xlsx_n(r.ยอด)}));
+    byCategory= byCategory.map(r=>({...r, ยอด:xlsx_n(r.ยอด)}));
+    byActor   = byActor.map(r=>({...r, ยอด:xlsx_n(r.ยอด)}));
+  }
+
+  return { actorTitle, actorKey, byProduct, byCategory, byActor, totals:{totalQty,totalAmt,vatAmt} };
+}
+
+function exportExcelOneSheetPretty_FIXED(){
+  if(!window.XLSX) return alert('XLSX ยังไม่โหลด');
+  prepareSnapshot();
+
+  const opt = xlsx_getReportOptions();
+  const rpt = xlsx_buildReportTables(opt);
+
+  const aoa=[];
+  const merges=[];
+
+  aoa.push([`Plug2Plug POS — รายงาน${opt.mode==='buy'?'ซื้อ':'ขาย'} เดือน ${opt.month}`]);
+  merges.push({s:{r:0,c:0}, e:{r:0,c:7}});
+  aoa.push([]);
+  aoa.push(['เดือน',opt.month,'โหมด',opt.mode==='buy'?'ซื้อ':'ขาย','ฟิลเตอร์',opt.filter,`${rpt.actorTitle}(ถ้ามี)`,opt.actor||'']);
+  aoa.push(['บันทึกลงไดรฟ์?',opt.showMoney?'ใช่':'ไม่','พิมพ์เมื่อ',new Date().toISOString().slice(0,19).replace('T',' '),'','','','']);
+  aoa.push([]);
+
+  const sumRow = opt.showMoney
+    ? ['สรุป','จำนวนรวม',rpt.totals.totalQty,'ยอดรวม',rpt.totals.totalAmt,'VAT รวม(ประมาณ)',rpt.totals.vatAmt,'']
+    : ['สรุป','จำนวนรวม',rpt.totals.totalQty,'','','','',''];
+  aoa.push(sumRow);
+
+  const addSection=(title, headers, rows)=>{
+    aoa.push([]);
+    const r0=aoa.length;
+    aoa.push([title]); merges.push({s:{r:r0,c:0}, e:{r:r0,c:7}});
+    aoa.push(headers);
+    if(!rows.length){
+      aoa.push(['(ไม่มีข้อมูลตามเงื่อนไขนี้)']); merges.push({s:{r:aoa.length-1,c:0}, e:{r:aoa.length-1,c:7}});
+      return;
+    }
+    rows.forEach(obj=>aoa.push(headers.map(h=>obj[h]??'')));
+  };
+
+  addSection('ตารางที่ 1: สรุปตามสินค้า',
+    opt.showMoney?['สินค้า','หมวด','จำนวน','ยอด']:['สินค้า','หมวด','จำนวน'],
+    rpt.byProduct
+  );
+  addSection('ตารางที่ 2: สรุปตามหมวดหมู่',
+    opt.showMoney?['หมวดหมู่','จำนวน','ยอด']:['หมวดหมู่','จำนวน'],
+    rpt.byCategory
+  );
+  addSection(`ตารางที่ 3: สรุปตาม${rpt.actorTitle}`,
+    opt.showMoney?[rpt.actorKey,'ยอด']:[rpt.actorKey],
+    rpt.byActor
+  );
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges']=merges;
+  ws['!cols']=[{wch:32},{wch:18},{wch:14},{wch:18},{wch:16},{wch:18},{wch:18},{wch:26}];
+  ws['!freeze']={xSplit:0,ySplit:6,topLeftCell:'A7',activePane:'bottomLeft',state:'frozen'};
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, xlsx_safeSheetName(`REPORT_${opt.month}`));
+
+  const file = `Report_${opt.mode==='buy'?'BUY':'SELL'}_${opt.month}_${opt.filter}${opt.actor?('_'+opt.actor):''}${opt.showMoney?'':'_noMoney'}.xlsx`;
+  const out = XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  xlsx_download(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), file);
+  setSyncStatus('Export Excel สำเร็จ ✅','text-emerald-400');
+}
+
+$('#exportXlsxBtn')?.addEventListener('click', ()=>{
+  try{ exportExcelOneSheetPretty_FIXED(); }
+  catch(e){ console.error(e); alert('Export Excel พัง: ' + (e?.message||e)); }
+});
 /* ================== Build Initial UI ================== */
 function refreshAllUI(){
   refreshStoreCustomer();
