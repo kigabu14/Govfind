@@ -882,36 +882,64 @@ $('#exportCustomPdf').addEventListener('click', ()=>{
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-
   const hasThai = ensureThaiPdfFont(doc);
 
   const title = `รายงาน${mode==='buy'?'ซื้อ':'ขาย'} — ${month}`;
-  doc.setFontSize(16); doc.text(title, 14, 16);
-  doc.setFontSize(11);
+  doc.setFontSize(20); 
+  doc.text(title, 18, 20);
+  doc.setFontSize(17);
 
   if(!hasThai){
-    doc.setFontSize(10);
+    doc.setFontSize(15);
     doc.text('(ยังไม่ได้ตั้งค่าฟอนต์ไทย: กดปุ่ม "ฟอนต์ PDF ไทย" แล้วอัปโหลด .ttf)', 14, 22);
-    doc.setFontSize(11);
+    doc.setFontSize(15);
   }
 
-  const {arrP,arrC,arrA,totalQty,totalAmt,items} = aggForMonth(mode,month);
-  const itemsFiltered = (filter==='actor' && actorPick!=='__ALL__') ? items.filter(i=> i._actor===actorPick ) : items;
+  const {arrP,arrC,arrA,items} = aggForMonth(mode,month);
 
-  const money = (n)=> showMoney ? formatCurrency(n) : '-';
-  const addTable=(head, body)=>doc.autoTable({
-    startY: doc.lastAutoTable? doc.lastAutoTable.finalY+8 : 28,
-    head:[head],
-    body,
-    styles:{ font: hasThai ? "ThaiFont" : "helvetica" }
-  });
+  let itemsFiltered = items;
+  if(filter==='actor' && actorPick!=='__ALL__'){
+    itemsFiltered = items.filter(i => i._actor === actorPick);
+  }else if(filter==='vat'){
+    itemsFiltered = items.filter(i => i.hasVat);
+  }
+
+  const totalQtyFiltered = itemsFiltered.reduce((s,i)=>s + Number(i.quantity||0), 0);
+  const totalAmtFiltered = itemsFiltered.reduce((s,i)=>s + Number(i.total||0), 0);
+
+  const addTable=(head, body)=> {
+    let h = [...head];
+    let b = body.map(r=>[...r]);
+
+    if(!showMoney){
+      h = h.slice(0, -1);
+      b = b.map(r => r.slice(0, h.length));
+    }
+
+    doc.autoTable({
+      startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 8 : 28,
+      head:[h],
+      body:b,
+      styles:{ font: hasThai ? "ThaiFont" : "helvetica" }
+    });
+  };
 
   if(filter==='all'){
     addTable(['สินค้า','หมวดหมู่','จำนวน','ยอดรวม'],
-      arrP.map(r=>[r.productName,r.category,r.qty.toLocaleString('th-TH'), money(r.amount)]));
+      arrP.map(r=>[
+        r.productName,
+        r.category,
+        r.qty.toLocaleString('th-TH'),
+        formatCurrency(r.amount)
+      ])
+    );
+
   }else if(filter==='actor'){
-    const rows = (actorPick==='__ALL__' ? arrA : [{actor:actorPick, amount: itemsFiltered.reduce((s,i)=>s+i.total,0)}])
-      .map(r=>[r.actor, money(r.amount)]);
+    const rows = (actorPick==='__ALL__'
+      ? arrA
+      : [{actor:actorPick, amount: itemsFiltered.reduce((s,i)=>s+i.total,0)}]
+    ).map(r=>[r.actor, formatCurrency(r.amount)]);
+
     addTable([mode==='buy'?'ร้าน':'ลูกค้า','ยอดรวม'], rows);
 
     if(actorPick!=='__ALL__'){
@@ -921,40 +949,67 @@ $('#exportCustomPdf').addEventListener('click', ()=>{
         if(!byP.has(k)) byP.set(k,{
           name:k,
           cat:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ',
-          qty:0,amt:0
+          qty:0,
+          amt:0
         });
-        const x=byP.get(k); x.qty+=i.quantity; x.amt+=i.total;
+        const x=byP.get(k);
+        x.qty += i.quantity;
+        x.amt += i.total;
       });
+
       const rows2=[...byP.values()].sort((a,b)=>b.amt-a.amt)
-        .map(x=>[x.name,x.cat,x.qty.toLocaleString('th-TH'), money(x.amt)]);
+        .map(x=>[
+          x.name,
+          x.cat,
+          x.qty.toLocaleString('th-TH'),
+          formatCurrency(x.amt)
+        ]);
+
       addTable(['สินค้า','หมวดหมู่','จำนวน','ยอดรวม'], rows2);
     }
+
   }else if(filter==='category'){
     addTable(['หมวดหมู่','จำนวน','ยอดรวม'],
-      arrC.map(r=>[r.category, r.qty.toLocaleString('th-TH'), money(r.amount)]));
+      arrC.map(r=>[
+        r.category,
+        r.qty.toLocaleString('th-TH'),
+        formatCurrency(r.amount)
+      ])
+    );
+
   }else if(filter==='vat'){
-    const vatItems=itemsFiltered.filter(i=>i.hasVat);
     const byP=new Map();
-    vatItems.forEach(i=>{
+    itemsFiltered.forEach(i=>{
       const k=i.productName;
       if(!byP.has(k)) byP.set(k,{
         name:k,
         cat:(products.find(p=>String(p.id)===String(i.productId))?.category)||'ไม่ระบุ',
-        qty:0,amt:0
+        qty:0,
+        amt:0
       });
-      const x=byP.get(k); x.qty+=i.quantity; x.amt+=i.total;
+      const x=byP.get(k);
+      x.qty += i.quantity;
+      x.amt += i.total;
     });
+
     const rows=[...byP.values()].sort((a,b)=>b.amt-a.amt)
-      .map(x=>[x.name,x.cat,x.qty.toLocaleString('th-TH'), money(x.amt)]);
+      .map(x=>[
+        x.name,
+        x.cat,
+        x.qty.toLocaleString('th-TH'),
+        formatCurrency(x.amt)
+      ]);
+
     addTable(['สินค้า (VAT)','หมวดหมู่','จำนวน','ยอดรวม'], rows);
   }
 
-  doc.autoTable({
-    startY: doc.lastAutoTable? doc.lastAutoTable.finalY+8 : 28,
-    head:[['รวมทั้งเดือน','จำนวนรวม','ยอดรวม']],
-    body:[[mode==='buy'?'ซื้อ':'ขาย', totalQty.toLocaleString('th-TH'), money(totalAmt)]],
-    styles:{ font: hasThai ? "ThaiFont" : "helvetica" }
-  });
+  addTable(['รวมทั้งเดือน','จำนวนรวม','ยอดรวม'],
+    [[
+      mode==='buy'?'ซื้อ':'ขาย',
+      totalQtyFiltered.toLocaleString('th-TH'),
+      formatCurrency(totalAmtFiltered)
+    ]]
+  );
 
   const file = `รายงาน_${mode==='buy'?'ซื้อ':'ขาย'}_${month}_${filter}${actorPick!=='__ALL__'?'_'+actorPick:''}${showMoney?'':'_noMoney'}.pdf`;
   doc.save(file);
